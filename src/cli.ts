@@ -11,7 +11,8 @@ import { createWorkflow } from './workflows/workflow-registry';
 import { readJsonIfPresent, atomicWrite, emit, readTurns } from './cli-utils';
 import { runHook } from './cli-hook';
 import { runRun } from './cli-run';
-import type { AgentKind, WorkflowKind } from './types';
+import { runSetup } from './cli-setup';
+import type { AgentKind, CrewRole, WorkflowKind } from './types';
 
 export interface CliOptions {
   command: string;
@@ -22,6 +23,14 @@ export interface CliOptions {
   workspace: string;
   json: boolean;
   migrateTarget: string | null;
+  setupImplementer: AgentKind | null;
+  setupReviewer: AgentKind | null;
+  setupPair: AgentKind | null;
+  setupVerifier: AgentKind | null;
+  setupTaskId: string | null;
+  setupGoal: string | null;
+  setupForce: boolean;
+  setupOutput: string | null;
 }
 
 export function parseArguments(argv: string[]): CliOptions {
@@ -34,6 +43,14 @@ export function parseArguments(argv: string[]): CliOptions {
     workspace: process.cwd(),
     json: false,
     migrateTarget: null,
+    setupImplementer: null,
+    setupReviewer: null,
+    setupPair: null,
+    setupVerifier: null,
+    setupTaskId: null,
+    setupGoal: null,
+    setupForce: false,
+    setupOutput: null,
   };
 
   const positional: string[] = [];
@@ -62,6 +79,36 @@ export function parseArguments(argv: string[]): CliOptions {
       i++;
       if (!argv[i]) throw new Error('--workspace requires a value');
       options.workspace = argv[i];
+    } else if (arg === '--implementer') {
+      i++;
+      if (!argv[i]) throw new Error('--implementer requires a value');
+      options.setupImplementer = argv[i] as AgentKind;
+    } else if (arg === '--reviewer') {
+      i++;
+      if (!argv[i]) throw new Error('--reviewer requires a value');
+      options.setupReviewer = argv[i] as AgentKind;
+    } else if (arg === '--pair-agent') {
+      i++;
+      if (!argv[i]) throw new Error('--pair-agent requires a value');
+      options.setupPair = argv[i] as AgentKind;
+    } else if (arg === '--verifier') {
+      i++;
+      if (!argv[i]) throw new Error('--verifier requires a value');
+      options.setupVerifier = argv[i] as AgentKind;
+    } else if (arg === '--task-id') {
+      i++;
+      if (!argv[i]) throw new Error('--task-id requires a value');
+      options.setupTaskId = argv[i];
+    } else if (arg === '--goal') {
+      i++;
+      if (!argv[i]) throw new Error('--goal requires a value');
+      options.setupGoal = argv[i];
+    } else if (arg === '--force') {
+      options.setupForce = true;
+    } else if (arg === '--output') {
+      i++;
+      if (!argv[i]) throw new Error('--output requires a value');
+      options.setupOutput = argv[i];
     } else if (arg.startsWith('--')) {
       throw new Error(`Unknown argument: ${arg}`);
     } else {
@@ -79,7 +126,7 @@ export function parseArguments(argv: string[]): CliOptions {
   return options;
 }
 
-const VALID_COMMANDS = new Set(['init', 'prepare', 'hook', 'run', 'next', 'status', 'disable', 'enable', 'migrate']);
+const VALID_COMMANDS = new Set(['init', 'prepare', 'hook', 'run', 'next', 'status', 'disable', 'enable', 'migrate', 'setup']);
 
 async function runCommand(options: CliOptions): Promise<number> {
   const paths = createStatePaths(options.workspace);
@@ -200,6 +247,24 @@ async function runCommand(options: CliOptions): Promise<number> {
         return 0;
       }
       throw new Error(`Unknown migration target: ${target}`);
+    }
+
+    case 'setup': {
+      const participants: Partial<Record<CrewRole, AgentKind>> = {};
+      if (options.setupImplementer) participants.implementer = options.setupImplementer;
+      if (options.setupReviewer) participants.reviewer = options.setupReviewer;
+      if (options.setupPair) participants.pair = options.setupPair;
+      if (options.setupVerifier) participants.verifier = options.setupVerifier;
+      return runSetup({
+        workspace: options.workspace,
+        workflow: options.workflow as WorkflowKind | null,
+        participants,
+        taskId: options.setupTaskId,
+        goal: options.setupGoal,
+        json: options.json,
+        force: options.setupForce,
+        output: options.setupOutput,
+      });
     }
 
     default:

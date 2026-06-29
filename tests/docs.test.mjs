@@ -10,7 +10,8 @@ const requiredDocs = [
   'docs/adapters/codex.md',
   'docs/adapters/claude-code.md',
   'docs/adapters/opencode.md',
-  'docs/adapters/github-copilot.md'
+  'docs/adapters/github-copilot.md',
+  'docs/tutorial.md'
 ];
 
 for (const file of requiredDocs) {

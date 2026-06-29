@@ -10,6 +10,8 @@ npm install agents-crew
 
 Requires Node.js >= 20.
 
+For a step-by-step walkthrough, see [docs/tutorial.md](docs/tutorial.md).
+
 ## Using as an npm Package — Setting Up a Bridge
 
 `agents-crew` manages review loops between AI agents. A **bridge** is a workspace where two or more agents collaborate on a task through structured state files and CLI commands.
@@ -21,6 +23,43 @@ npx agents-crew init --workspace .
 ```
 
 Creates `.agents-crew/` for runtime state.
+
+### Or: use `setup` to scaffold a bridge in one step
+
+`setup` creates the workspace directory **and** generates a `task-input.json` template. Pass flags for all values, or omit any to be prompted interactively:
+
+```bash
+# All flags — no prompts
+npx agents-crew setup \
+  --workspace . \
+  --workflow implement-review \
+  --implementer claude-code \
+  --reviewer codex \
+  --task-id auth-001 \
+  --goal "Add rate limiting" \
+  --json
+
+# Interactive — prompts for anything not provided
+npx agents-crew setup --workspace . --json
+```
+
+Setup flags:
+
+| Flag | Description |
+|---|---|
+| `--workflow` | `implement-review`, `pair-implement`, or `same-agent-loop` |
+| `--implementer` | Agent for implementer role |
+| `--reviewer` | Agent for reviewer role |
+| `--pair-agent` | Agent for pair role (pair-implement workflow) |
+| `--verifier` | Agent for verifier role (pair-implement workflow) |
+| `--task-id` | Unique task identifier |
+| `--goal` | Task goal description |
+
+After `setup`, edit `task-input.json` to refine acceptance criteria and tests, then run `prepare`:
+
+```bash
+npx agents-crew prepare --task task-input.json --json
+```
 
 ### 2. Define a task draft
 
