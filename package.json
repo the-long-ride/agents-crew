@@ -1,0 +1,35 @@
+{
+    "scripts":  {
+                    "test:coverage":  "tsc -p tsconfig.json && node --test --experimental-test-coverage tests/*.test.mjs",
+                    "build":  "tsc -p tsconfig.json",
+                    "check:bridge":  "node --check packages/agent-bridge-core/index.cjs && node --check scripts/agent-bridge.cjs",
+                    "lint":  "node scripts/lint-line-count.cjs",
+                    "test:bridge":  "tsc -p tsconfig.json && node --test tests/agent-bridge.test.mjs tests/agent-bridge-hook.test.mjs tests/agent-bridge-package.test.mjs",
+                    "test":  "tsc -p tsconfig.json && node --test tests/*.test.mjs",
+                    "prepack":  "npm run build && npm test"
+                },
+    "description":  "Typed communication loops for AI agent crews.",
+    "type":  "commonjs",
+    "types":  "./dist/index.d.ts",
+    "version":  "0.1.0",
+    "files":  [
+                  "dist",
+                  "schemas",
+                  "README.md",
+                  "LICENSE"
+              ],
+    "engines":  {
+                    "node":  ">=20"
+                },
+    "name":  "agents-crew",
+    "private":  false,
+    "main":  "./dist/index.js",
+    "devDependencies":  {
+                            "@types/node":  "^20.14.0",
+                            "typescript":  "^5.5.0"
+                        },
+    "bin":  {
+                "agent-bridge":  "./dist/cli.js",
+                "agents-crew":  "./dist/cli.js"
+            }
+}

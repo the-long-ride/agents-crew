@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-crew.dev/schemas/task.schema.json",
+  "title": "CrewTaskDraft",
+  "type": "object",
+  "properties": {
+    "taskId": { "type": "string", "minLength": 1 },
+    "goal": { "type": "string", "minLength": 1 },
+    "acceptanceCriteria": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string" },
+          "status": { "type": "string", "enum": ["passed", "failed", "skipped", "blocked"] },
+          "summary": { "type": "string" }
+        },
+        "required": ["command", "status", "summary"],
+        "additionalProperties": false
+      }
+    },
+    "implementationSummary": { "type": "string", "minLength": 1 },
+    "workflow": {
+      "type": "string",
+      "enum": ["implement-review", "pair-implement", "same-agent-loop"]
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "agent": { "type": "string", "enum": ["antigravity", "codex", "claude-code", "opencode", "github-copilot", "process"] },
+          "role": { "type": "string", "enum": ["implementer", "reviewer", "pair", "verifier"] },
+          "model": { "type": "string" },
+          "conversationId": { "type": "string" },
+          "command": { "type": "string" },
+          "args": { "type": "array", "items": { "type": "string" } },
+          "cwd": { "type": "string" }
+        },
+        "required": ["id", "agent", "role"],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "conversationId": { "type": "string" }
+  },
+  "required": ["taskId", "goal", "acceptanceCriteria", "tests", "implementationSummary", "workflow", "participants"],
+  "additionalProperties": false
+}

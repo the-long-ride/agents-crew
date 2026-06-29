@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-crew.dev/schemas/review.schema.json",
+  "title": "CrewReview",
+  "type": "object",
+  "properties": {
+    "status": { "type": "string", "enum": ["pass", "findings", "needs_human"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+          "file": { "type": "string", "minLength": 1 },
+          "line": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "evidence": { "type": "string", "minLength": 1 },
+          "requiredFix": { "type": "string", "minLength": 1 }
+        },
+        "required": ["severity", "file", "line", "title", "evidence", "requiredFix"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["status", "summary", "findings"],
+  "additionalProperties": false
+}

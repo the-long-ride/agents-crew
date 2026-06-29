@@ -1,0 +1,10 @@
+{
+  "name": "@the-machine/agent-bridge-core",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Portable review-loop core for AI agent integrations.",
+  "main": "./index.cjs",
+  "bin": {
+    "agent-bridge-core": "./index.cjs"
+  }
+}
