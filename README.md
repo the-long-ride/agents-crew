@@ -8,33 +8,92 @@ Portable tooling for connecting AI agents to shared review loops, task handoff s
 npm install agents-crew
 ```
 
-## CLI Quickstart
+Requires Node.js >= 20.
+
+## Using as an npm Package — Setting Up a Bridge
+
+`agents-crew` manages review loops between AI agents. A **bridge** is a workspace where two or more agents collaborate on a task through structured state files and CLI commands.
+
+### 1. Initialize the workspace
 
 ```bash
-# Initialize workspace state directory
-agents-crew init --workspace .
-
-# Prepare a task from a JSON draft
-agents-crew prepare --task task-input.json --json
-
-# Advance the workflow to the next participant
-agents-crew next --json
-
-# Run a specific participant
-agents-crew run --participant rev-1 --json
-
-# Check workspace status
-agents-crew status --json
-
-# Disable / re-enable automation
-agents-crew disable --json
-agents-crew enable --json
-
-# Migrate from agent-bridge v1
-agents-crew migrate agent-bridge-v1 --json
+npx agents-crew init --workspace .
 ```
 
-## TypeScript API Quickstart
+Creates `.agents-crew/` for runtime state.
+
+### 2. Define a task draft
+
+Create a JSON file describing the task and which agents participate:
+
+```json
+{
+  "taskId": "add-redis-cache",
+  "goal": "Add Redis caching to API routes",
+  "acceptanceCriteria": ["Redis hit rate > 80%", "All existing tests pass"],
+  "tests": [{ "command": "npm test", "status": "passed", summary: "ok" }],
+  "implementationSummary": "Added Redis middleware in src/cache.ts",
+  "workflow": "implement-review",
+  "participants": [
+    { "id": "impl-1", "agent": "claude-code", "role": "implementer" },
+    { "id": "rev-1",  "agent": "codex",       "role": "reviewer" }
+  ]
+}
+```
+
+For a custom reviewer command, use the `process` adapter:
+
+```json
+"participants": [
+  { "id": "impl-1", "agent": "claude-code", "role": "implementer" },
+  { "id": "rev-1",  "agent": "process", "role": "reviewer", "command": "node", "args": ["my-reviewer.js"], "env": { "DEBUG": "1" } }
+]
+```
+
+### 3. Prepare the task
+
+```bash
+npx agents-crew prepare --task task-input.json --json
+```
+
+This seals the current git diff hash into state, writes `TASK.json` and `READY.json`, and makes the task active.
+
+### 4. Run participants
+
+```bash
+# Run a specific participant (e.g., the reviewer)
+npx agents-crew run --participant rev-1 --json
+
+# Or use the Antigravity hook for automated review on model stop:
+echo '{"terminationReason":"model_stop","fullyIdle":true,"conversationId":"..."}' | npx agents-crew hook --adapter antigravity --json
+```
+
+- **Implementer** runs are allowed to change the working tree; the task snapshot is refreshed automatically.
+- **Reviewer/verifier** runs reject if the diff changed mid-review (stale diff guard).
+- Every run appends a turn to `TURNS.jsonl` and persists review state.
+
+### 5. Advance the workflow
+
+```bash
+npx agents-crew next --json
+```
+
+Returns which participant should act next based on the workflow rules and last turn.
+
+### 6. Check status
+
+```bash
+npx agents-crew status --json
+```
+
+### 7. Pause / resume automation
+
+```bash
+npx agents-crew disable --json   # stops hook from running
+npx agents-crew enable --json    # re-enables
+```
+
+### Programmatic usage
 
 ```ts
 import {
@@ -62,6 +121,10 @@ const task = validateCrewTaskDraft({
 const workflow = createWorkflow('implement-review');
 const decision = workflow.decideNext({ task, lastTurn });
 ```
+
+### Legacy conversation IDs
+
+If migrating from `agent-bridge` v1, `antigravityConversationId` in the task draft is automatically normalized to `conversationId`.
 
 ## State File Model
 
@@ -112,7 +175,7 @@ See [docs/adapters/](docs/adapters/) for per-adapter setup and configuration.
 If your workspace previously used `agent-bridge` v1 with a `.agent-bridge/` directory:
 
 ```bash
-agents-crew migrate agent-bridge-v1 --json
+npx agents-crew migrate agent-bridge-v1 --json
 ```
 
 This copies `TASK.json`, `READY.json`, `REVIEW.json`, `NEEDS_HUMAN.md`, and `DISABLED` from `.agent-bridge/` into `.agents-crew/` (does not remove legacy files).
@@ -120,78 +183,9 @@ This copies `TASK.json`, `READY.json`, `REVIEW.json`, `NEEDS_HUMAN.md`, and `DIS
 ## Publish / Test Commands
 
 ```bash
-# Run all tests
-npm test
-
-# Run bridge-specific tests
-npm run test:bridge
-
-# Syntax-check the legacy CJS entrypoints
-npm run check:bridge
-
-# Build TypeScript
-npm run build
-
-# Build + test before packing
-npm run prepack
-```
-
-## Current Scope
-
-- `packages/agent-bridge-core/` owns the portable review-loop runtime.
-- `scripts/agent-bridge.cjs` is the repo-level CLI entrypoint.
-- `scripts/agent-bridge.ps1` is the Windows wrapper for local adapter use.
-- `tests/` covers control commands, task preparation, hook processing, and package wiring.
-- `docs/workflows/` workflow documentation.
-- `docs/adapters/` adapter documentation.
-
-## Supported Today
-
-- Antigravity Desktop App via workspace-local hook and PowerShell wrapper.
-
-## Planned Adapters
-
-- Claude Code
-- Codex CLI / IDE / Desktop
-- OpenCode
-- GitHub Copilot CLI / Desktop / IDE
-
-## Layout
-
-- `packages/agent-bridge-core/` portable runtime and schema
-- `scripts/` repo entrypoints
-- `tests/` bridge test suites
-- `docs/antigravity/` Antigravity-specific workflow docs
-- `docs/workflows/` workflow documentation
-- `docs/adapters/` adapter documentation
-
-## Antigravity Usage
-
-Workspaces should keep their own local `.agents/hooks.json`, `.agents/rules/...`, and small wrapper entrypoint. Those files should delegate into this repo so the portable core stays in one place.
-
-Recommended local wrapper behavior:
-
-1. resolve sibling `agents-crew`
-2. forward stdin and CLI args
-3. pass the workspace root through `--workspace`
-
-Common wrapper commands:
-
-- `pwsh.exe -NoProfile -File scripts/agent-bridge.ps1 prepare --task <task-input.json> --json`
-- `pwsh.exe -NoProfile -File scripts/agent-bridge.ps1 disable --json`
-- `pwsh.exe -NoProfile -File scripts/agent-bridge.ps1 enable --json`
-- `pwsh.exe -NoProfile -File scripts/agent-bridge.ps1 status --json`
-
-Runtime state files:
-
-- `.agent-bridge/READY.json`
-- `.agent-bridge/REVIEW.json`
-- `.agent-bridge/NEEDS_HUMAN.md`
-
-## Verification
-
-```bash
-npm run test:bridge
-node --check packages/agent-bridge-core/index.cjs
-node --check scripts/agent-bridge.cjs
+npm test          # build + run all tests
+npm run lint      # line-count check (<= 500 lines per file)
+npm run test:coverage  # build + tests + text coverage report
+npm run build     # compile TypeScript
+npm run prepack   # build + test (runs before npm pack)
 ```

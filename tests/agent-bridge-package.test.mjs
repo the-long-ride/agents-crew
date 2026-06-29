@@ -97,8 +97,8 @@ test('root CLI is thin wrapper over package core', async () => {
 test('README documents package-backed bridge workflow', async () => {
   const readme = await readFile(path.join(repositoryRoot, 'README.md'), 'utf8');
 
-  assert.match(readme, /agent-bridge-core/);
-  assert.match(readme, /agent-bridge\.ps1 disable/);
-  assert.match(readme, /\.agent-bridge\/READY\.json/);
+  assert.match(readme, /Setting Up a Bridge/);
+  assert.match(readme, /agents-crew prepare/);
   assert.match(readme, /NEEDS_HUMAN\.md/);
+  assert.match(readme, /READY\.json/);
 });
