@@ -1,0 +1,57 @@
+{
+  "name": "@agents-crew/cli",
+  "version": "0.3.0",
+  "description": "Dependency-free TypeScript multi-agent crew orchestration for Codex, Claude Code, OpenCode, and Antigravity.",
+  "type": "module",
+  "bin": {
+    "crew": "./dist/cli/entry.js",
+    "agents-crew": "./dist/cli/entry.js"
+  },
+  "main": "./dist/index.js",
+  "exports": "./dist/index.js",
+  "files": [
+    "dist",
+    "src",
+    "ui/src",
+    "ui/static",
+    "roles",
+    "schemas",
+    "docs/*.md",
+    "README.md",
+    "GUIDELINE.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "tsconfig.json"
+  ],
+  "scripts": {
+    "clean": "node ./scripts/clean.mjs",
+    "build": "node --disable-warning=ExperimentalWarning ./scripts/build.mjs",
+    "typecheck": "node ./scripts/typecheck.mjs",
+    "lint": "npm run build && node ./scripts/lint.mjs && node ./scripts/check-file-lengths.mjs && node ./scripts/verify-delivery.mjs",
+    "test:unit": "npm run build && node --test test/*.test.mjs ui/test/*.test.mjs scripts/*.test.mjs",
+    "test": "npm run lint && npm run test:unit",
+    "coverage": "npm run build && node --disable-warning=ExperimentalWarning --experimental-test-coverage --test-coverage-include=\"dist/**/*.js\" --test-coverage-lines=85 --test-coverage-functions=85 --test-coverage-branches=80 --test test/*.test.mjs ui/test/*.test.mjs scripts/*.test.mjs",
+    "pack:check": "npm run build && npm pack --dry-run --ignore-scripts",
+    "check": "npm run typecheck && npm run lint && npm run test:unit && npm run coverage && npm run pack:check",
+    "prepack": "npm run build"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
+  "keywords": [
+    "agents",
+    "ai-agents",
+    "codex",
+    "claude-code",
+    "opencode",
+    "antigravity",
+    "typescript",
+    "cli"
+  ]
+}

@@ -1,0 +1,16 @@
+/dist/
+/coverage/
+node_modules/
+.agents-crew/
+.agent-bridge/
+.agents/
+.codex/
+.claude/
+.opencode/
+.worktrees/
+*.patch
+*.tgz
+npm-debug.log*
+__pycache__/
+*.pyc
+docs/superpowers/

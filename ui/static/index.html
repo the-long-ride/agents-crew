@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Agents Crew</title>
+  <link rel="stylesheet" href="/assets/tokens.css">
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand"><span class="signal"></span> AGENTS CREW</div>
+      <nav aria-label="Primary">
+        <button type="button" class="nav-button active" data-view="builder">Builder</button>
+        <button type="button" class="nav-button" data-view="templates">Templates</button>
+        <button type="button" class="nav-button" data-view="runtime">Runtime</button>
+        <button type="button" class="nav-button" data-view="history">History</button>
+      </nav>
+      <div class="top-actions">
+        <div class="theme-switch" aria-label="Color theme">
+          <button type="button" class="icon-text-button" data-theme="light" aria-label="Use light theme">Light</button>
+          <button type="button" class="icon-text-button" data-theme="dark" aria-label="Use dark theme">Dark</button>
+        </div>
+        <div id="save-scope-control" class="scope-control" aria-label="Save scope"></div>
+        <button id="save-template" type="button" class="primary-button">Save template</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="builder-view" class="view builder-grid">
+        <aside class="panel template-panel">
+          <div class="section-heading compact">
+            <p class="eyebrow">Template library</p>
+            <button type="button" class="info-button" aria-label="About Template library" data-info-title="Template library" data-info-text="Search reusable crew definitions, open one in the builder, or create a copy for a new workflow.">i</button>
+          </div>
+          <input id="template-search" class="input" placeholder="Search templates" aria-label="Search templates">
+          <button id="new-template" type="button" class="secondary-button full">+ New template</button>
+          <div id="template-list" class="list"></div>
+        </aside>
+
+        <section class="canvas-panel">
+          <div class="canvas-toolbar">
+            <div>
+              <div class="section-heading compact">
+                <p class="eyebrow">Crew canvas</p>
+                <button type="button" class="info-button" aria-label="About Crew canvas" data-info-title="Crew canvas" data-info-text="Drag empty space to pan, use the mouse wheel to zoom, and drag nodes to arrange the manager and workers. Fit shows every node; Reset returns to 100% zoom.">i</button>
+              </div>
+              <h1 id="canvas-title">No template</h1>
+            </div>
+            <div class="canvas-actions">
+              <span id="zoom-level" class="zoom-level">100%</span>
+              <button id="fit-graph" type="button" class="secondary-button">Fit</button>
+              <button id="reset-zoom" type="button" class="secondary-button">Reset zoom</button>
+              <button id="add-worker" type="button" class="secondary-button">+ Worker</button>
+            </div>
+          </div>
+          <div id="crew-canvas" class="canvas" aria-label="Crew graph. Drag to pan and use mouse wheel to zoom." tabindex="0">
+            <div id="crew-world" class="canvas-world"></div>
+          </div>
+        </section>
+
+        <aside class="panel inspector-panel">
+          <div class="section-heading compact">
+            <p class="eyebrow">Inspector</p>
+            <button type="button" class="info-button" aria-label="About Inspector" data-info-title="Inspector" data-info-text="Edit the selected node's host, model, roles, capabilities, and execution requirements. Model suggestions are public catalog hints; manual IDs remain supported.">i</button>
+          </div>
+          <div id="inspector"></div>
+        </aside>
+      </section>
+
+      <section id="templates-view" class="view page" hidden>
+        <div class="page-heading">
+          <div>
+            <div class="section-heading compact">
+              <p class="eyebrow">Reusable crews</p>
+              <button type="button" class="info-button" aria-label="About Templates" data-info-title="Templates" data-info-text="Compare built-in, global, and workspace crew definitions in one table. Workspace templates override matching global IDs.">i</button>
+            </div>
+            <h2>Templates</h2>
+          </div>
+        </div>
+        <p class="lead">Workspace templates override matching global IDs. Built-in templates remain read-only.</p>
+        <div id="template-table" class="table-shell"></div>
+      </section>
+
+      <section id="runtime-view" class="view page" hidden>
+        <div class="page-heading">
+          <div>
+            <div class="section-heading compact">
+              <p class="eyebrow">Durable execution</p>
+              <button type="button" class="info-button" aria-label="About Runtime" data-info-title="Runtime" data-info-text="Inspect active runs, task progress, events, pending actions, and durable files. Pause, resume, or cancel a non-terminal run.">i</button>
+            </div>
+            <h2>Runtime</h2>
+          </div>
+          <button id="refresh-runs" type="button" class="secondary-button">Refresh</button>
+        </div>
+        <div class="runtime-layout">
+          <div id="run-list" class="run-list"></div>
+          <article id="run-detail" class="detail-card"><div class="empty">Select an active run.</div></article>
+        </div>
+      </section>
+
+      <section id="history-view" class="view page" hidden>
+        <div class="page-heading">
+          <div>
+            <div class="section-heading compact">
+              <p class="eyebrow">Archived execution</p>
+              <button type="button" class="info-button" aria-label="About Run history" data-info-title="Run history" data-info-text="Review completed, failed, blocked, and cancelled runs after they move into durable history. Archived runs are read-only.">i</button>
+            </div>
+            <h2>History</h2>
+          </div>
+          <button id="refresh-history" type="button" class="secondary-button">Refresh</button>
+        </div>
+        <div class="runtime-layout">
+          <div id="history-list" class="run-list"></div>
+          <article id="history-detail" class="detail-card"><div class="empty">Select an archived run.</div></article>
+        </div>
+      </section>
+    </main>
+    <div id="toast" role="status" aria-live="polite"></div>
+  </div>
+  <script type="module" src="/assets/app.js"></script>
+</body>
+</html>

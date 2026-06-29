@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-crew.dev/schemas/manager-action.schema.json",
+  "title": "Agents Crew Outstanding Manager Action",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "run_id",
+    "task_id",
+    "issued_at",
+    "expires_at",
+    "capability_envelope",
+    "action",
+    "consumed"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "capability_envelope": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/capability"
+      }
+    },
+    "action": {
+      "$ref": "#/$defs/action"
+    },
+    "consumed": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "capability": {
+      "enum": [
+        "read",
+        "write",
+        "shell",
+        "network",
+        "commit",
+        "push",
+        "deploy",
+        "destructive"
+      ]
+    },
+    "role": {
+      "enum": [
+        "manager",
+        "planner",
+        "researcher",
+        "implementer",
+        "tester",
+        "reviewer",
+        "integrator"
+      ]
+    },
+    "action": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "goal",
+            "state_path",
+            "output_schema"
+          ],
+          "properties": {
+            "type": {
+              "const": "plan"
+            },
+            "goal": {
+              "type": "string"
+            },
+            "state_path": {
+              "type": "string"
+            },
+            "output_schema": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "task_id",
+            "state_path",
+            "output_schema"
+          ],
+          "properties": {
+            "type": {
+              "const": "review"
+            },
+            "task_id": {
+              "type": "string"
+            },
+            "state_path": {
+              "type": "string"
+            },
+            "output_schema": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "task_id",
+            "role",
+            "model",
+            "model_fallback",
+            "capabilities",
+            "workspace",
+            "context_path",
+            "output_schema"
+          ],
+          "properties": {
+            "type": {
+              "const": "dispatch_native"
+            },
+            "task_id": {
+              "type": "string"
+            },
+            "role": {
+              "$ref": "#/$defs/role"
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "model_fallback": {
+              "enum": [
+                "allow_host_default",
+                "deny"
+              ]
+            },
+            "capabilities": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/capability"
+              }
+            },
+            "workspace": {
+              "type": "string"
+            },
+            "context_path": {
+              "type": "string"
+            },
+            "output_schema": {
+              "type": "string"
+            },
+            "workspace_snapshot": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "approval_id",
+            "operation",
+            "reason"
+          ],
+          "properties": {
+            "type": {
+              "const": "request_approval"
+            },
+            "approval_id": {
+              "type": "string"
+            },
+            "operation": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "message"
+          ],
+          "properties": {
+            "type": {
+              "const": "display"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "status",
+            "summary"
+          ],
+          "properties": {
+            "type": {
+              "const": "terminal"
+            },
+            "status": {
+              "enum": [
+                "planning",
+                "working",
+                "paused",
+                "awaiting_approval",
+                "manager_required",
+                "completed",
+                "blocked",
+                "failed",
+                "cancelled"
+              ]
+            },
+            "summary": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

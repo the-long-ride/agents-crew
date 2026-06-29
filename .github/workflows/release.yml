@@ -1,0 +1,114 @@
+name: release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v-prefixed tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - name: Resolve tag
+        id: version
+        shell: bash
+        run: echo "tag=${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Verify release version
+        run: node scripts/verify-version.mjs "${{ steps.version.outputs.tag }}"
+      - name: Verify source and package
+        run: npm run check
+
+  package:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Build npm artifact
+        run: |
+          npm pkg set repository.type=git
+          npm pkg set "repository.url=git+https://github.com/${GITHUB_REPOSITORY}.git"
+          npm pkg set "homepage=https://github.com/${GITHUB_REPOSITORY}#readme"
+          npm pkg set "bugs.url=https://github.com/${GITHUB_REPOSITORY}/issues"
+          mkdir -p artifacts
+          npm pack --pack-destination artifacts
+          (cd artifacts && sha256sum *.tgz > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agents-crew-npm-package
+          path: artifacts/*
+          if-no-files-found: error
+
+  github-release:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - name: Resolve tag
+        id: version
+        shell: bash
+        run: echo "tag=${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          name: agents-crew-npm-package
+          path: artifacts
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --generate-notes --title "Agents Crew $TAG"
+          gh release upload "$TAG" artifacts/* --clobber
+
+  npm-publish:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Install trusted-publishing npm CLI
+        run: npm install --global "npm@>=11.5.1 <12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: agents-crew-npm-package
+          path: artifacts
+      - name: Publish exact verified package
+        env:
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
+        run: |
+          PACKAGE="$(find artifacts -maxdepth 1 -name '*.tgz' -print -quit)"
+          test -n "$PACKAGE"
+          npm publish "$PACKAGE" --access public --provenance

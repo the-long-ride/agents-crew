@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-crew.dev/schemas/task.schema.json",
+  "title": "Agents Crew Task",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "instructions",
+    "role",
+    "capabilities",
+    "dependencies",
+    "status",
+    "attempt",
+    "max_attempts",
+    "expected_output"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parent_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "instructions": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "enum": [
+        "manager",
+        "planner",
+        "researcher",
+        "implementer",
+        "tester",
+        "reviewer",
+        "integrator"
+      ]
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "read",
+          "write",
+          "shell",
+          "network",
+          "commit",
+          "push",
+          "deploy",
+          "destructive"
+        ]
+      }
+    },
+    "write_scope": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "preferred_workers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "ready",
+        "running",
+        "verifying",
+        "retryable",
+        "blocked",
+        "completed",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_attempts": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "assigned_worker": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspace_binding": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "expected_output": {
+      "type": "string"
+    },
+    "result": {
+      "oneOf": [
+        {
+          "$ref": "worker-result.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "strategy_fingerprint": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
