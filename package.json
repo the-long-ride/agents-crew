@@ -11,7 +11,7 @@
     "description":  "Typed communication loops for AI agent crews.",
     "type":  "commonjs",
     "types":  "./dist/index.d.ts",
-    "version":  "0.1.0",
+    "version":  "0.0.1",
     "files":  [
                   "dist",
                   "schemas",

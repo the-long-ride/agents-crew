@@ -9,7 +9,7 @@ export { getGitSnapshot, type GitSnapshot } from './git/snapshot';
 export { acquireWorkspaceLock, type WorkspaceLock } from './locks/workspace-lock';
 
 export const packageName = 'agents-crew';
-export const packageVersion = '0.1.0';
+export const packageVersion = '0.0.1';
 
 export type { AgentAdapter, AgentRunInput, AgentRunRequest, AgentRunResult, AgentRunFinding, AgentHookInput, AgentHookDecision } from './adapters/agent-adapter';
 export { createProcessAgentAdapter } from './adapters/process-agent';

@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.1] - 2026-07-05
+
 ### Added
 - `agents-crew help` command, plus `--help` / `-h` flag on every command, plus a
   bare-invocation overview (status tip + quickstart). Per-command help covers all
