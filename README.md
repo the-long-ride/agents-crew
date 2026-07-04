@@ -1,6 +1,16 @@
 # Agents Crew
 
-Portable tooling for connecting AI agents to shared review loops, task handoff state, and workspace adapters.
+> Wire your AI coders into a tight review loop. Stand up an implementer ↔ reviewer pipeline in three commands — locked, diff-guarded, and resumable.
+
+`agents-crew` coordinates typed communication loops between AI agents through JSON state files and a small CLI. State lives under `.agents-crew/` so any combination of tools (Claude Code, Codex, opencode, GitHub Copilot, Antigravity) can hand off safely across sessions — no shared process required.
+
+**At a glance**
+
+- Three workflows: `implement-review`, `pair-implement`, `same-agent-loop`
+- Five built-in adapters (`antigravity`, `codex`, `claude-code`, `opencode`, `github-copilot`) plus a custom `process` adapter for any command
+- Diff-hash guard — reviewers reject the run if the working tree changes mid-review
+- One-step onboarding: `setup --prepare` scaffolds the bridge and seals the task into state in a single command
+- Antigravity hook auto-fires the reviewer on `model_stop`
 
 ## Install
 
@@ -203,10 +213,6 @@ const workflow = createWorkflow('implement-review');
 const decision = workflow.decideNext({ task, lastTurn });
 ```
 
-### Legacy conversation IDs
-
-If migrating from `agent-bridge` v1, `antigravityConversationId` in the task draft is automatically normalized to `conversationId`.
-
 ## State File Model
 
 All runtime state lives under `.agents-crew/` in the workspace root.
@@ -251,22 +257,6 @@ See [docs/adapters/](docs/adapters/) for per-adapter setup and configuration.
 - **Read-only review** — The Codex adapter runs in `--sandbox read-only` mode; process-based adapters receive context and schema but do not grant write access through the adapter itself.
 - **Atomic writes** — All state files are written via temp-then-rename to avoid partial reads.
 
-## Migration from `agent-bridge`
+## Development
 
-If your workspace previously used `agent-bridge` v1 with a `.agent-bridge/` directory:
-
-```bash
-npx agents-crew migrate agent-bridge-v1 --json
-```
-
-This copies `TASK.json`, `READY.json`, `REVIEW.json`, `NEEDS_HUMAN.md`, and `DISABLED` from `.agent-bridge/` into `.agents-crew/` (does not remove legacy files).
-
-## Publish / Test Commands
-
-```bash
-npm test          # build + run all tests
-npm run lint      # line-count check (<= 500 lines per file)
-npm run test:coverage  # build + tests + text coverage report
-npm run build     # compile TypeScript
-npm run prepack   # build + test (runs before npm pack)
-```
+See [GUIDELINE.md](GUIDELINE.md) for build, test, lint, and coverage workflow.
