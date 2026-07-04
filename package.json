@@ -1,6 +1,6 @@
 {
     "scripts":  {
-                    "test:coverage":  "tsc -p tsconfig.json && node --test --experimental-test-coverage tests/*.test.mjs",
+                    "test:coverage":  "tsc -p tsconfig.json && node scripts/coverage-check.cjs",
                     "build":  "tsc -p tsconfig.json",
                     "check:bridge":  "node --check packages/agent-bridge-core/index.cjs && node --check scripts/agent-bridge.cjs",
                     "lint":  "node scripts/lint-line-count.cjs",
