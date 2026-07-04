@@ -4,14 +4,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createStatePaths } from './state/paths';
 import { JsonStateStore } from './state/json-store';
-import { getGitSnapshot } from './git/snapshot';
 import { migrateAgentBridgeV1 } from './migration/agent-bridge-v1';
-import { validateCrewTaskDraft } from './schema/task';
 import { createWorkflow } from './workflows/workflow-registry';
-import { readJsonIfPresent, atomicWrite, emit, readTurns } from './cli-utils';
+import { atomicWrite, emit, readTurns } from './cli-utils';
 import { runHook } from './cli-hook';
 import { runRun } from './cli-run';
 import { runSetup } from './cli-setup';
+import { printHelp } from './cli-help';
+import { prepareTask } from './cli-prepare';
 import type { AgentKind, CrewRole, WorkflowKind } from './types';
 
 export interface CliOptions {
@@ -31,6 +31,7 @@ export interface CliOptions {
   setupGoal: string | null;
   setupForce: boolean;
   setupOutput: string | null;
+  setupPrepare: boolean;
 }
 
 export function parseArguments(argv: string[]): CliOptions {
@@ -51,6 +52,7 @@ export function parseArguments(argv: string[]): CliOptions {
     setupGoal: null,
     setupForce: false,
     setupOutput: null,
+    setupPrepare: false,
   };
 
   const positional: string[] = [];
@@ -103,6 +105,8 @@ export function parseArguments(argv: string[]): CliOptions {
       i++;
       if (!argv[i]) throw new Error('--goal requires a value');
       options.setupGoal = argv[i];
+    } else if (arg === '--prepare') {
+      options.setupPrepare = true;
     } else if (arg === '--force') {
       options.setupForce = true;
     } else if (arg === '--output') {
@@ -126,7 +130,7 @@ export function parseArguments(argv: string[]): CliOptions {
   return options;
 }
 
-const VALID_COMMANDS = new Set(['init', 'prepare', 'hook', 'run', 'next', 'status', 'disable', 'enable', 'migrate', 'setup']);
+const VALID_COMMANDS = new Set(['init', 'prepare', 'hook', 'run', 'next', 'status', 'disable', 'enable', 'migrate', 'setup', 'help']);
 
 async function runCommand(options: CliOptions): Promise<number> {
   const paths = createStatePaths(options.workspace);
@@ -140,44 +144,13 @@ async function runCommand(options: CliOptions): Promise<number> {
     }
 
     case 'prepare': {
-      if (!options.taskPath) throw new Error('prepare requires --task <path>');
-      const draftText = readJsonIfPresent(options.taskPath);
-      if (!draftText) throw new Error(`Task file not found: ${options.taskPath}`);
-      const task = validateCrewTaskDraft(draftText);
-      const workflow = options.workflow || task.workflow;
-      const snapshot = getGitSnapshot(options.workspace);
-      const previous = store.readTask() as any;
-      const now = new Date().toISOString();
-      const storedTask = {
-        ...task,
-        workflow,
-        schemaVersion: 1,
-        workspaceRoot: options.workspace,
-        repositoryRoot: snapshot.repositoryRoot,
-        baseCommit: snapshot.baseCommit,
-        diffHash: snapshot.diffHash,
-        changedFiles: snapshot.changedFiles,
-        reviewCycle:
-          previous?.taskId === task.taskId && Number.isInteger(previous.reviewCycle)
-            ? previous.reviewCycle
-            : 0,
-        updatedAt: now,
-      };
-      store.writeTask(storedTask);
-      store.writeReady({
-        schemaVersion: 1,
-        taskId: storedTask.taskId,
-        diffHash: storedTask.diffHash,
-        createdAt: now,
+      const res = prepareTask({
+        workspace: options.workspace,
+        taskPath: options.taskPath,
+        workflow: options.workflow,
       });
-      const status = {
-        enabled: !fs.existsSync(paths.disabled),
-        ready: true,
-        taskId: storedTask.taskId,
-        cycle: storedTask.reviewCycle,
-      };
-      emit(status, options.json);
-      return 0;
+      emit(res.output, options.json);
+      return res.code;
     }
 
     case 'hook':
@@ -264,6 +237,7 @@ async function runCommand(options: CliOptions): Promise<number> {
         json: options.json,
         force: options.setupForce,
         output: options.setupOutput,
+        prepare: options.setupPrepare,
       });
     }
 
@@ -272,9 +246,33 @@ async function runCommand(options: CliOptions): Promise<number> {
   }
 }
 
+function isHelpToken(arg: string): boolean {
+  return arg === '--help' || arg === '-h';
+}
+
 function main(): void {
   try {
     const argv = process.argv.slice(2);
+
+    if (argv.length === 0) {
+      process.exitCode = printHelp(null);
+      return;
+    }
+
+    const helpFlagIndex = argv.findIndex(isHelpToken);
+    if (helpFlagIndex !== -1) {
+      const cmdIndex = argv.findIndex((arg) => !arg.startsWith('--') && arg !== '-h');
+      const cmd = cmdIndex !== -1 ? argv[cmdIndex] : null;
+      process.exitCode = printHelp(cmd);
+      return;
+    }
+
+    if (argv[0] === 'help') {
+      const target = argv[1] && !argv[1].startsWith('--') ? argv[1] : null;
+      process.exitCode = printHelp(target);
+      return;
+    }
+
     const options = parseArguments(argv);
     if (!VALID_COMMANDS.has(options.command)) {
       throw new Error(`Unknown command: ${options.command}`);

@@ -4,6 +4,7 @@ import readline from 'node:readline';
 import { createStatePaths } from './state/paths';
 import { validateCrewTaskDraft } from './schema/task';
 import { atomicWrite, emit } from './cli-utils';
+import { prepareTask } from './cli-prepare';
 import type { AgentKind, CrewParticipant, CrewRole, WorkflowKind } from './types';
 
 interface WorkflowRoleConfig {
@@ -70,6 +71,7 @@ export interface SetupOptions {
   json: boolean;
   force: boolean;
   output: string | null;
+  prepare: boolean;
 }
 
 export async function runSetup(options: SetupOptions): Promise<number> {
@@ -153,17 +155,37 @@ export async function runSetup(options: SetupOptions): Promise<number> {
 
     atomicWrite(taskInputPath, `${JSON.stringify(taskDraft, null, 2)}\n`);
 
-    const result = {
+    const prepared = options.prepare
+      ? prepareTask({ workspace: options.workspace, taskPath: taskInputPath, workflow }).output
+      : null;
+
+    const result: any = {
       setup: true,
       directory: paths.directory,
       taskInput: taskInputPath,
       workflow,
       participants: participants.map((p) => `${p.role}: ${p.agent}`),
-      nextSteps: [
-        'Edit task-input.json to add acceptance criteria, tests, and implementation summary.',
-        'Run: agents-crew prepare --task task-input.json --json',
-      ],
+      nextSteps: prepared
+        ? [
+            'Run: agents-crew run --participant <id> --json',
+            'Or: agents-crew next --json',
+          ]
+        : [
+            'Edit task-input.json to add acceptance criteria, tests, and implementation summary.',
+            'Run: agents-crew prepare --task task-input.json --json',
+          ],
     };
+
+    if (prepared) {
+      result.prepared = true;
+      result.status = {
+        enabled: prepared.enabled,
+        ready: prepared.ready,
+        taskId: prepared.taskId,
+        cycle: prepared.cycle,
+      };
+    }
+
     emit(result, options.json);
     return 0;
   } finally {

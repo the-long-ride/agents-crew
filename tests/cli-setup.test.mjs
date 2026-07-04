@@ -256,3 +256,34 @@ test('setup --output writes to custom path', async () => {
   const taskInput = JSON.parse(await readFile(path.join(workspace, 'custom-task.json'), 'utf8'));
   assert.equal(taskInput.taskId, 't1');
 });
+
+test('setup --prepare seals the task into state in one step', async () => {
+  const workspace = await createWorkspace();
+  await writeFile(path.join(workspace, 'src.txt'), 'change\n');
+
+  const result = cli([
+    'setup',
+    '--workspace', workspace,
+    '--workflow', 'implement-review',
+    '--implementer', 'claude-code',
+    '--reviewer', 'codex',
+    '--task-id', 'one-step',
+    '--goal', 'One step prepare',
+    '--prepare',
+    '--json',
+  ], { cwd: workspace });
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout.trim());
+  assert.equal(output.setup, true);
+  assert.equal(output.prepared, true);
+  assert.equal(output.status.ready, true);
+  assert.equal(output.status.taskId, 'one-step');
+  assert.ok(output.nextSteps.some((s) => s.includes('run')));
+  assert.ok(!output.nextSteps.some((s) => s.includes('prepare')));
+
+  const task = JSON.parse(await readFile(path.join(workspace, '.agents-crew', 'TASK.json'), 'utf8'));
+  assert.equal(task.taskId, 'one-step');
+  assert.match(task.diffHash, /^[a-f0-9]{64}$/);
+  assert.equal(existsSync(path.join(workspace, '.agents-crew', 'READY.json')), true);
+});

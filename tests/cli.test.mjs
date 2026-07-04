@@ -236,3 +236,57 @@ test('cli rejects unknown flags', () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Unknown argument/);
 });
+
+test('cli with no args prints overview (quickstart)', () => {
+  const result = cli();
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /agents-crew/);
+  assert.match(result.stdout, /QUICKSTART/);
+});
+
+test('cli --help prints overview', () => {
+  const result = cli('--help');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /agents-crew/);
+  assert.match(result.stdout, /QUICKSTART/);
+});
+
+test('cli -h prints overview', () => {
+  const result = cli('-h');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /QUICKSTART/);
+});
+
+test('cli help prints overview', () => {
+  const result = cli('help');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /QUICKSTART/);
+});
+
+test('cli help <command> prints per-command help', () => {
+  const result = cli('help', 'setup');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /agents-crew setup/);
+  assert.match(result.stdout, /--prepare/);
+});
+
+test('cli <command> --help prints per-command help without running the command', () => {
+  const result = cli('setup', '--help');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /agents-crew setup/);
+  assert.match(result.stdout, /--prepare/);
+  assert.match(result.stdout, /USAGE/);
+});
+
+test('cli status --help prints status help instead of running status', () => {
+  const result = cli('status', '--help');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /agents-crew status/);
+  assert.doesNotMatch(result.stdout, /agents-crew: enabled/);
+});
+
+test('cli help <unknown command> returns an error', () => {
+  const result = cli('help', 'nope');
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Unknown command/);
+});
