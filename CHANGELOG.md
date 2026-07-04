@@ -1,0 +1,46 @@
+# Changelog
+
+All notable changes to **agents-crew** are documented here.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- `agents-crew help` command, plus `--help` / `-h` flag on every command, plus a
+  bare-invocation overview (status tip + quickstart). Per-command help covers all
+  11 commands (`init`, `setup`, `prepare`, `run`, `next`, `status`, `hook`,
+  `disable`, `enable`, `migrate`, `help`) with usage, flags, and examples.
+- `setup --prepare` flag: scaffold the bridge and seal the task into state in a
+  single step, collapsing the previous `setup` → edit → `prepare` chain.
+- New `src/cli-help.ts` (help text + dispatch) and `src/cli-prepare.ts`
+  (extracted `prepareTask()` helper, reused by `prepare` and `setup --prepare`).
+- Code coverage threshold guard `scripts/coverage-check.cjs`. It runs the full
+  test suite with `--experimental-test-coverage`, parses the text coverage table
+  (portable across Node 20/22/24), and asserts a weighted line-coverage
+  aggregate of >= 85% over the shipped `dist/` source. `npm run test:coverage`
+  now runs the guard; CI continues to call `npm run test:coverage` in its matrix.
+- Tests: `cli with no args`, `--help`, `-h`, `help`, `help <command>`,
+  `<command> --help`, `status --help`, `help <unknown command>`, and
+  `setup --prepare seals the task into state in one step`.
+
+### Changed
+- `setup` result now includes `prepared: true` and a `status` block when
+  `--prepare` is passed, with `nextSteps` pointing straight to `run` / `next`.
+- `prepare` and `setup --prepare` now share a single `prepareTask()` code path,
+  eliminating the duplicated seal/snapshot logic.
+
+### Documentation
+- README: new `Help & quickstart` section, `--prepare` flag row in the setup
+  table, and a one-step quickstart example.
+- Tutorial: new "One-step option: `--prepare`" subsection in Step 2, plus
+  `setup --prepare` and `help` lines in the quick reference.
+
+## [0.1.0] — initial public release
+
+- Typed `agents-crew` package: CLI, adapters (antigravity, codex, claude-code,
+  opencode, github-copilot, process), workflows (implement-review,
+  pair-implement, same-agent-loop), JSON state store, git snapshot, workspace
+  lock, agent-bridge v1 migration.
+- Hidden shim `packages/agent-bridge-core/index.cjs` and `scripts/agent-bridge.cjs`
+  preserve backward compatibility with the pre-typed `agent-bridge` launcher.

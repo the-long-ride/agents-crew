@@ -49,6 +49,22 @@ npx agents-crew setup --workspace . --json
 
 And answer the prompts for workflow, agents, task ID, and goal.
 
+### One-step option: `--prepare`
+
+If your goal and acceptance criteria are already clear, pass `--prepare` to scaffold
+the bridge and seal the task into state in a single command (no separate prepare step):
+
+```bash
+npx agents-crew setup --workspace . --workflow implement-review \
+  --implementer claude-code --reviewer codex \
+  --task-id my-first-bridge --goal "Fix the login redirect bug" \
+  --prepare --json
+```
+
+The output includes `"prepared": true` and a `status` block; you can then go straight to
+`agents-crew run` / `agents-crew next`. To refine acceptance criteria or tests, edit
+`task-input.json` and re-run `prepare`.
+
 ## Step 3 — Edit the task draft
 
 Open `task-input.json` and refine it:
@@ -278,6 +294,7 @@ All runtime state lives in `.agents-crew/`:
 
 ```bash
 agents-crew setup        # Scaffold a bridge (interactive or with flags)
+agents-crew setup --prepare  # Scaffold + prepare in one step
 agents-crew init         # Create .agents-crew/ directory only
 agents-crew prepare      # Seal a task into state
 agents-crew run          # Run a participant
@@ -287,6 +304,7 @@ agents-crew hook         # Antigravity automated review trigger
 agents-crew disable      # Pause automation
 agents-crew enable       # Resume automation
 agents-crew migrate      # Migrate from agent-bridge v1
+agents-crew help         # Show overview or per-command help
 ```
 
 All commands accept `--workspace <path>` (default: current directory) and `--json` for machine-readable output.

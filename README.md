@@ -10,6 +10,45 @@ npm install agents-crew
 
 Requires Node.js >= 20.
 
+## Help & quickstart
+
+Every command has built-in help:
+
+```bash
+agents-crew help            # top-level overview + quickstart
+agents-crew help setup      # detailed help for the setup command
+agents-crew setup --help    # same as above
+agents-crew -h              # top-level overview
+```
+
+Running `agents-crew` with no arguments prints the overview (a status tip plus the quickstart).
+
+### One-step task: `setup --prepare`
+
+`setup --prepare` scaffolds the bridge **and** seals the task into state in a single step, so you can go straight to `run` / `next`:
+
+```bash
+npx agents-crew setup \
+  --workspace . \
+  --workflow implement-review \
+  --implementer claude-code \
+  --reviewer codex \
+  --task-id auth-001 \
+  --goal "Add rate limiting" \
+  --prepare --json
+```
+
+```json
+{
+  "setup": true,
+  "prepared": true,
+  "workflow": "implement-review",
+  "participants": ["implementer: claude-code", "reviewer: codex"],
+  "status": { "enabled": true, "ready": true, "taskId": "auth-001", "cycle": 0 },
+  "nextSteps": ["Run: agents-crew run --participant <id> --json", "Or: agents-crew next --json"]
+}
+```
+
 For a step-by-step walkthrough, see [docs/tutorial.md](docs/tutorial.md).
 
 ## Using as an npm Package — Setting Up a Bridge
@@ -54,6 +93,9 @@ Setup flags:
 | `--verifier` | Agent for verifier role (pair-implement workflow) |
 | `--task-id` | Unique task identifier |
 | `--goal` | Task goal description |
+| `--prepare` | Also seal the task into state (skip the manual `prepare` step) |
+| `--output` | Write the template to this path (default `task-input.json`) |
+| `--force` | Overwrite an existing `task-input.json` |
 
 After `setup`, edit `task-input.json` to refine acceptance criteria and tests, then run `prepare`:
 
