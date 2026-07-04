@@ -3,7 +3,6 @@ export { validateCrewTaskDraft } from './schema/task';
 export { validateCrewReview } from './schema/review';
 export { createStatePaths, type StatePaths } from './state/paths';
 export { JsonStateStore } from './state/json-store';
-export { migrateAgentBridgeV1, type MigrationResult } from './migration/agent-bridge-v1';
 
 export { getGitSnapshot, type GitSnapshot } from './git/snapshot';
 export { acquireWorkspaceLock, type WorkspaceLock } from './locks/workspace-lock';

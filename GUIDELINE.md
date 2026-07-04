@@ -40,7 +40,6 @@ src/
   context/       context-pack builder (CKAG-style packed context for agents)
   git/           getGitSnapshot (sha256 of repo root + base commit + diff + untracked)
   locks/         workspace lock (exclusive `wx` open of LOCK.json)
-  migration/     migration helpers
   schema/        validateCrewTaskDraft, validateCrewReview
   state/         StatePaths + JsonStateStore (atomic temp-then-rename writes)
   workflows/     workflow-registry + the three built-in workflows

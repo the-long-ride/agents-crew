@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, readFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -200,23 +200,6 @@ test('cli next with task but no turns returns first participant', async () => {
   const output = JSON.parse(result.stdout);
   assert.equal(output.action, 'continue');
   assert.equal(output.nextParticipantId, 'impl');
-});
-
-test('cli migrate rejects unknown target', async () => {
-  const workspace = await createWorkspace();
-  const result = cliWorkspace(workspace, 'migrate', 'unknown-target', '--json');
-  assert.notEqual(result.status, 0);
-});
-
-test('cli migrate agent-bridge-v1', async () => {
-  const workspace = await createWorkspace();
-  const legacyDir = path.join(workspace, '.agent-bridge');
-  await mkdir(legacyDir, { recursive: true });
-  await writeFile(path.join(legacyDir, 'TASK.json'), JSON.stringify({ taskId: 'old' }));
-  const result = cliWorkspace(workspace, 'migrate', 'agent-bridge-v1', '--json');
-  assert.equal(result.status, 0, result.stderr);
-  const output = JSON.parse(result.stdout);
-  assert.equal(output.migrated, true);
 });
 
 test('cli hook returns stop when disabled', async () => {

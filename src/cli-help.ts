@@ -13,7 +13,6 @@ export const COMMAND_SUMMARIES: CommandSummary[] = [
   { name: 'hook', summary: 'Antigravity automation entry (reads hook JSON from stdin)' },
   { name: 'disable', summary: 'Pause automation (creates DISABLED sentinel)' },
   { name: 'enable', summary: 'Resume automation' },
-  { name: 'migrate', summary: 'Migrate from agent-bridge v1' },
   { name: 'help', summary: 'Show this help, or help for a command' },
 ];
 
@@ -140,12 +139,6 @@ const COMMAND_DOCS: Record<string, CommandDoc> = {
   enable: {
     description: 'Remove the .agents-crew/DISABLED sentinel so `hook` can run again.',
     usage: ['agents-crew enable [--workspace <path>] [--json]'],
-  },
-  migrate: {
-    description:
-      'Copy TASK.json, READY.json, REVIEW.json, NEEDS_HUMAN.md, and DISABLED from\n' +
-      '.agent-bridge/ into .agents-crew/. Does not remove legacy files.',
-    usage: ['agents-crew migrate agent-bridge-v1 [--workspace <path>] [--json]'],
   },
   help: {
     description:

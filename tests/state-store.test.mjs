@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { createStatePaths, JsonStateStore, migrateAgentBridgeV1 } from '../dist/index.js';
+import { createStatePaths, JsonStateStore } from '../dist/index.js';
 
 test('state paths use .agents-crew by default', async () => {
   const workspace = await mkdtemp(path.join(tmpdir(), 'agents-crew-state-'));
@@ -68,35 +67,4 @@ test('json store readTask returns written data', async () => {
   store.writeTask({ taskId: 't-1' });
   const task = store.readTask();
   assert.equal(task.taskId, 't-1');
-});
-
-test('migration copies agent-bridge v1 task into agents-crew state', async () => {
-  const workspace = await mkdtemp(path.join(tmpdir(), 'agents-crew-migrate-'));
-  const legacyDir = path.join(workspace, '.agent-bridge');
-  await import('node:fs/promises').then(fs => fs.mkdir(legacyDir, { recursive: true }));
-  await writeFile(path.join(legacyDir, 'TASK.json'), JSON.stringify({ schemaVersion: 1, taskId: 'old' }));
-  const result = await migrateAgentBridgeV1(workspace);
-  assert.equal(result.migrated, true);
-  assert.equal(existsSync(path.join(workspace, '.agents-crew', 'TASK.json')), true);
-});
-
-test('migration returns false when no legacy state', async () => {
-  const workspace = await mkdtemp(path.join(tmpdir(), 'agents-crew-nolegacy-'));
-  const result = await migrateAgentBridgeV1(workspace);
-  assert.equal(result.migrated, false);
-  assert.equal(result.copiedFiles.length, 0);
-});
-
-test('migration does not overwrite existing files', async () => {
-  const workspace = await mkdtemp(path.join(tmpdir(), 'agents-crew-nooverwrite-'));
-  const legacyDir = path.join(workspace, '.agent-bridge');
-  await import('node:fs/promises').then(fs => fs.mkdir(legacyDir, { recursive: true }));
-  await writeFile(path.join(legacyDir, 'TASK.json'), JSON.stringify({ taskId: 'old' }));
-  const newDir = path.join(workspace, '.agents-crew');
-  await import('node:fs/promises').then(fs => fs.mkdir(newDir, { recursive: true }));
-  await writeFile(path.join(newDir, 'TASK.json'), JSON.stringify({ taskId: 'existing' }));
-  const result = await migrateAgentBridgeV1(workspace);
-  assert.equal(result.migrated, false);
-  const existing = JSON.parse(await readFile(path.join(newDir, 'TASK.json'), 'utf8'));
-  assert.equal(existing.taskId, 'existing');
 });

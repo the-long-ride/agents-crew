@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createStatePaths } from './state/paths';
 import { JsonStateStore } from './state/json-store';
-import { migrateAgentBridgeV1 } from './migration/agent-bridge-v1';
 import { createWorkflow } from './workflows/workflow-registry';
 import { atomicWrite, emit, readTurns } from './cli-utils';
 import { runHook } from './cli-hook';
@@ -22,7 +21,6 @@ export interface CliOptions {
   participant: string | null;
   workspace: string;
   json: boolean;
-  migrateTarget: string | null;
   setupImplementer: AgentKind | null;
   setupReviewer: AgentKind | null;
   setupPair: AgentKind | null;
@@ -43,7 +41,6 @@ export function parseArguments(argv: string[]): CliOptions {
     participant: null,
     workspace: process.cwd(),
     json: false,
-    migrateTarget: null,
     setupImplementer: null,
     setupReviewer: null,
     setupPair: null,
@@ -54,8 +51,6 @@ export function parseArguments(argv: string[]): CliOptions {
     setupOutput: null,
     setupPrepare: false,
   };
-
-  const positional: string[] = [];
 
   for (let i = 1; i < argv.length; i++) {
     const arg = argv[i];
@@ -116,21 +111,17 @@ export function parseArguments(argv: string[]): CliOptions {
     } else if (arg.startsWith('--')) {
       throw new Error(`Unknown argument: ${arg}`);
     } else {
-      positional.push(arg);
+      throw new Error(`Unknown argument: ${arg}`);
     }
   }
 
   options.workspace = path.resolve(options.workspace);
   if (options.taskPath) options.taskPath = path.resolve(options.workspace, options.taskPath);
 
-  if (options.command === 'migrate') {
-    options.migrateTarget = positional[0] || null;
-  }
-
   return options;
 }
 
-const VALID_COMMANDS = new Set(['init', 'prepare', 'hook', 'run', 'next', 'status', 'disable', 'enable', 'migrate', 'setup', 'help']);
+const VALID_COMMANDS = new Set(['init', 'prepare', 'hook', 'run', 'next', 'status', 'disable', 'enable', 'setup', 'help']);
 
 async function runCommand(options: CliOptions): Promise<number> {
   const paths = createStatePaths(options.workspace);
@@ -210,16 +201,6 @@ async function runCommand(options: CliOptions): Promise<number> {
       };
       emit(status, options.json);
       return 0;
-    }
-
-    case 'migrate': {
-      const target = options.migrateTarget;
-      if (target === 'agent-bridge-v1') {
-        const result = await migrateAgentBridgeV1(options.workspace);
-        emit(result, options.json);
-        return 0;
-      }
-      throw new Error(`Unknown migration target: ${target}`);
     }
 
     case 'setup': {

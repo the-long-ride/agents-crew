@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- `agents-crew migrate` command and the `src/migration/agent-bridge-v1.ts`
+  helper (plus its `migrateAgentBridgeV1` / `MigrationResult` exports). The
+  package was never published, so there is no legacy v1 to migrate from; the
+  CLI surface drops from 11 commands to 10. Tests for the migrate command and
+  the migration helper have been removed.
+
 ## [0.0.1] - 2026-07-05
 
 ### Added

@@ -303,7 +303,6 @@ agents-crew status       # Current workspace state
 agents-crew hook         # Antigravity automated review trigger
 agents-crew disable      # Pause automation
 agents-crew enable       # Resume automation
-agents-crew migrate      # Migrate from agent-bridge v1
 agents-crew help         # Show overview or per-command help
 ```
 
