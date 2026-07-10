@@ -11,6 +11,8 @@ import { runRun } from './cli-run';
 import { runSetup } from './cli-setup';
 import { printHelp } from './cli-help';
 import { prepareTask } from './cli-prepare';
+import { doctorPlugins, installPlugins, listPlugins, uninstallPlugins } from './plugins/plugin-installer';
+import type { PluginTarget } from './plugins/plugin-contract';
 import type { AgentKind, CrewRole, WorkflowKind } from './types';
 
 export interface CliOptions {
@@ -30,6 +32,9 @@ export interface CliOptions {
   setupForce: boolean;
   setupOutput: string | null;
   setupPrepare: boolean;
+  pluginAction: string | null;
+  pluginTarget: PluginTarget;
+  pluginDryRun: boolean;
 }
 
 export function parseArguments(argv: string[]): CliOptions {
@@ -50,7 +55,39 @@ export function parseArguments(argv: string[]): CliOptions {
     setupForce: false,
     setupOutput: null,
     setupPrepare: false,
+    pluginAction: null,
+    pluginTarget: 'all',
+    pluginDryRun: false,
   };
+
+  if (options.command === 'plugin') {
+    options.pluginAction = argv[1] ?? 'list';
+    let start = 2;
+    if (argv[2] && !argv[2].startsWith('--')) {
+      options.pluginTarget = argv[2] as PluginTarget;
+      start = 3;
+    }
+    for (let i = start; i < argv.length; i++) {
+      const arg = argv[i];
+      if (arg === '--json') {
+        options.json = true;
+      } else if (arg === '--workspace') {
+        i++;
+        if (!argv[i]) throw new Error('--workspace requires a value');
+        options.workspace = argv[i];
+      } else if (arg === '--force') {
+        options.setupForce = true;
+      } else if (arg === '--dry-run') {
+        options.pluginDryRun = true;
+      } else if (arg.startsWith('--')) {
+        throw new Error(`Unknown argument: ${arg}`);
+      } else {
+        throw new Error(`Unknown argument: ${arg}`);
+      }
+    }
+    options.workspace = path.resolve(options.workspace);
+    return options;
+  }
 
   for (let i = 1; i < argv.length; i++) {
     const arg = argv[i];
@@ -121,7 +158,7 @@ export function parseArguments(argv: string[]): CliOptions {
   return options;
 }
 
-const VALID_COMMANDS = new Set(['init', 'prepare', 'hook', 'run', 'next', 'status', 'disable', 'enable', 'setup', 'help']);
+const VALID_COMMANDS = new Set(['init', 'prepare', 'hook', 'run', 'next', 'status', 'disable', 'enable', 'setup', 'plugin', 'help']);
 
 async function runCommand(options: CliOptions): Promise<number> {
   const paths = createStatePaths(options.workspace);
@@ -220,6 +257,33 @@ async function runCommand(options: CliOptions): Promise<number> {
         output: options.setupOutput,
         prepare: options.setupPrepare,
       });
+    }
+
+    case 'plugin': {
+      const action = options.pluginAction ?? 'list';
+      if (action === 'list') {
+        emit({ plugins: listPlugins() }, options.json);
+        return 0;
+      }
+      const pluginOptions = {
+        workspace: options.workspace,
+        target: options.pluginTarget,
+        force: options.setupForce,
+        dryRun: options.pluginDryRun,
+      };
+      if (action === 'install') {
+        emit({ installed: installPlugins(pluginOptions) }, options.json);
+        return 0;
+      }
+      if (action === 'uninstall') {
+        emit({ uninstalled: uninstallPlugins(pluginOptions) }, options.json);
+        return 0;
+      }
+      if (action === 'doctor') {
+        emit({ doctor: doctorPlugins(pluginOptions) }, options.json);
+        return 0;
+      }
+      throw new Error(`Unknown plugin action: ${action}`);
     }
 
     default:

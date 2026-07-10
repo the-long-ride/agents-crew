@@ -3,4 +3,7 @@ dist/
 .agents-crew/
 .agent-bridge/
 .agents/
+.opencode/goal-state.md
+.opencode/goal-state.previous.md
+plan-ignore-from-commit.md
 *.tgz

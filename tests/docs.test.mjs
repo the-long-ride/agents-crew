@@ -11,6 +11,7 @@ const requiredDocs = [
   'docs/adapters/claude-code.md',
   'docs/adapters/opencode.md',
   'docs/adapters/github-copilot.md',
+  'docs/plugins.md',
   'docs/tutorial.md'
 ];
 

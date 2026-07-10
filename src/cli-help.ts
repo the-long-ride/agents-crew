@@ -11,6 +11,7 @@ export const COMMAND_SUMMARIES: CommandSummary[] = [
   { name: 'next', summary: 'Decide which participant acts next' },
   { name: 'status', summary: 'Show workspace state (enabled/ready/task/cycle)' },
   { name: 'hook', summary: 'Antigravity automation entry (reads hook JSON from stdin)' },
+  { name: 'plugin', summary: 'Install, remove, list, or diagnose host plugin files' },
   { name: 'disable', summary: 'Pause automation (creates DISABLED sentinel)' },
   { name: 'enable', summary: 'Resume automation' },
   { name: 'help', summary: 'Show this help, or help for a command' },
@@ -128,6 +129,27 @@ const COMMAND_DOCS: Record<string, CommandDoc> = {
     examples: [
       'echo \'{"terminationReason":"model_stop","fullyIdle":true}\' \\',
       '  | agents-crew hook --adapter antigravity --json',
+    ],
+  },
+  plugin: {
+    description:
+      'Manage host-native plugin files for Codex, Antigravity, Claude Code, OpenCode, and GitHub Copilot.\n' +
+      'Generated files are workspace-local by default and delegate to the existing agents-crew CLI.',
+    usage: [
+      'agents-crew plugin list [--json]',
+      'agents-crew plugin install <host|all> [--workspace <path>] [--dry-run] [--force] [--json]',
+      'agents-crew plugin uninstall <host|all> [--workspace <path>] [--dry-run] [--json]',
+      'agents-crew plugin doctor <host|all> [--workspace <path>] [--json]',
+    ],
+    flags: [
+      '--dry-run          preview file changes without writing/removing files',
+      '--force            overwrite existing generated target files during install',
+      '--workspace <path> workspace root for generated plugin files',
+    ],
+    examples: [
+      'agents-crew plugin list --json',
+      'agents-crew plugin install antigravity --workspace . --dry-run --json',
+      'agents-crew plugin doctor all --workspace . --json',
     ],
   },
   disable: {
