@@ -19,10 +19,7 @@ pub fn success<T: Serialize>(command: &str, data: T, json_mode: bool) {
             data: value,
             error: None,
         };
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope).unwrap()
-        );
+        println!("{}", serde_json::to_string_pretty(&envelope).unwrap());
     } else if let Some(text) = value.as_str() {
         println!("{text}");
     } else {
@@ -41,10 +38,7 @@ pub fn failure(command: &str, error: &Error, json_mode: bool) {
                 "message": error.to_string(),
             })),
         };
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&envelope).unwrap()
-        );
+        println!("{}", serde_json::to_string_pretty(&envelope).unwrap());
     } else {
         eprintln!("error: {error}");
     }

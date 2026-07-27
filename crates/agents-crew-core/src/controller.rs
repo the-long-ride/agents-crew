@@ -16,10 +16,7 @@ pub fn create_run(
     Run::new(goal, repository, workspace_mode, manager, max_iterations)
 }
 
-pub fn apply_manager_decision(
-    run: &mut Run,
-    decision: ManagerDecision,
-) -> Result<(), CoreError> {
+pub fn apply_manager_decision(run: &mut Run, decision: ManagerDecision) -> Result<(), CoreError> {
     if run.iteration >= run.max_iterations {
         run.status = RunStatus::Failed;
         return Err(CoreError::InvalidManagerDecision(
@@ -132,8 +129,8 @@ pub fn record_worker_result(run: &mut Run, result: WorkerResult) -> Result<(), C
 mod tests {
     use super::*;
     use crate::{
-        AcceptanceCriterion, ApprovalRequest, Capability, ManagerCoding, ManagerIdentity,
-        Role, Task, TaskDraft, WorkspaceMode,
+        AcceptanceCriterion, ApprovalRequest, Capability, ManagerCoding, ManagerIdentity, Role,
+        Task, TaskDraft, WorkspaceMode,
     };
 
     fn run() -> Run {

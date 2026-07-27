@@ -102,7 +102,7 @@ impl RunStore {
             let modified = fs::metadata(self.run_dir(&id).join("run.json"))?.modified()?;
             if newest
                 .as_ref()
-                .map_or(true, |(existing, _)| modified > *existing)
+                .is_none_or(|(existing, _)| modified > *existing)
             {
                 newest = Some((modified, id));
             }
@@ -162,11 +162,7 @@ impl RunStore {
         )
     }
 
-    pub fn load_action(
-        &self,
-        run_id: &str,
-        id: &str,
-    ) -> Result<OutstandingAction, StateError> {
+    pub fn load_action(&self, run_id: &str, id: &str) -> Result<OutstandingAction, StateError> {
         let path = self
             .run_dir(run_id)
             .join("actions")
@@ -187,7 +183,10 @@ impl RunStore {
         if action.consumed {
             return Err(StateError::ActionConsumed(id.to_string()));
         }
-        if action.expires_at.is_some_and(|expires| expires <= Utc::now()) {
+        if action
+            .expires_at
+            .is_some_and(|expires| expires <= Utc::now())
+        {
             return Err(StateError::ActionExpired(id.to_string()));
         }
         if !claimed.is_subset(&action.capability_envelope) {
@@ -225,13 +224,8 @@ impl RunStore {
         }
         let mut actions = Vec::new();
         for entry in fs::read_dir(directory)?.filter_map(Result::ok) {
-            let action: OutstandingAction =
-                serde_json::from_slice(&fs::read(entry.path())?)?;
-            if !action.consumed
-                && action
-                    .expires_at
-                    .map_or(true, |expires| expires > Utc::now())
-            {
+            let action: OutstandingAction = serde_json::from_slice(&fs::read(entry.path())?)?;
+            if !action.consumed && action.expires_at.is_none_or(|expires| expires > Utc::now()) {
                 actions.push(action);
             }
         }

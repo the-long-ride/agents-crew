@@ -85,17 +85,32 @@ pub struct PluginReport {
     pub files: Vec<FileReport>,
 }
 
-pub(super) const COMMANDS: [(&str, &str); 11] = [
-    ("crew-init", "Create Agents Crew configuration and role files."),
-    ("crew-run", "Run one goal through the complete managed crew loop."),
-    ("crew-plan", "Create a bounded plan without implementation writes."),
-    ("crew-status", "Show run, task, approval, and pending-action state."),
+pub(crate) const COMMANDS: [(&str, &str); 11] = [
+    (
+        "crew-init",
+        "Create Agents Crew configuration and role files.",
+    ),
+    (
+        "crew-run",
+        "Run one goal through the complete managed crew loop.",
+    ),
+    (
+        "crew-plan",
+        "Create a bounded plan without implementation writes.",
+    ),
+    (
+        "crew-status",
+        "Show run, task, approval, and pending-action state.",
+    ),
     ("crew-resume", "Resume a paused or interrupted run."),
     ("crew-pause", "Pause scheduling new tasks."),
     ("crew-approve", "Approve one pending guarded action."),
     ("crew-reject", "Reject one pending guarded action."),
     ("crew-cancel", "Cancel the selected run."),
-    ("crew-doctor", "Probe config, workers, credentials, plugins, and Git."),
+    (
+        "crew-doctor",
+        "Probe config, workers, credentials, plugins, and Git.",
+    ),
     ("crew-config", "Show and validate configuration."),
 ];
 

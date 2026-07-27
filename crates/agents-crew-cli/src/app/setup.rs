@@ -132,5 +132,5 @@ pub(super) async fn run_goal(workspace: &Path, goal: &str) -> Result<Value> {
     run_store.append_event(&run.id, EventKind::RunStarted, json!({ "goal": goal }))?;
     advance_run(workspace, &cfg, &mut run).await?;
     run_store.save(&run)?;
-    Ok(run_response(workspace, &run)?)
+    run_response(workspace, &run)
 }

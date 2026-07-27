@@ -15,7 +15,7 @@
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "build:metadata": "node ./scripts/write-build-metadata.mjs",
     "build": "npm run clean && npm run build:metadata && tsc -p tsconfig.json",
-    "lint": "node ./scripts/lint.mjs",
+    "lint": "npm run build:metadata && node ./scripts/lint.mjs",
     "test:unit": "npm run build && node --test test/*.test.mjs",
     "test": "npm run lint && npm run test:unit",
     "coverage": "npm run build && node --experimental-test-coverage \"--test-coverage-include=dist/**/*.js\" \"--test-coverage-exclude=dist/generated.js\" --test-coverage-lines=85 --test-coverage-functions=85 --test-coverage-branches=85 --test test/*.test.mjs",

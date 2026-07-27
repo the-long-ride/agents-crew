@@ -18,16 +18,7 @@ pub(super) async fn execute_task(
     };
 
     match router.select(task, &routing).await {
-        Ok(worker) => {
-            execute_external_worker(
-                workspace,
-                cfg,
-                run,
-                task,
-                worker,
-            )
-            .await
-        }
+        Ok(worker) => execute_external_worker(workspace, cfg, run, task, worker).await,
         Err(_) => {
             let native = select_native_worker(cfg, task)
                 .ok_or_else(|| anyhow!("no eligible worker for task {}", task.id))?;
@@ -41,8 +32,7 @@ pub(super) async fn execute_task(
                 task,
                 run.workspace_mode,
             );
-            if is_unchanged_retry(task, &fingerprint)
-            {
+            if is_unchanged_retry(task, &fingerprint) {
                 return Ok(Execution::Failure {
                     task_id: task.id.clone(),
                     message: "retry rejected because native worker, model, instructions, and workspace strategy are unchanged".to_string(),
@@ -160,9 +150,7 @@ pub(super) async fn execute_external_worker(
     task: &Task,
     worker: Arc<dyn Worker>,
 ) -> Result<Execution> {
-    if let Some(execution) =
-        enforce_worker_transport_policy(cfg, run, task, worker.descriptor())?
-    {
+    if let Some(execution) = enforce_worker_transport_policy(cfg, run, task, worker.descriptor())? {
         return Ok(execution);
     }
     let task_workspace = prepare_task_workspace(workspace, run, task)?;
@@ -174,8 +162,7 @@ pub(super) async fn execute_external_worker(
         task,
         run.workspace_mode,
     );
-    if is_unchanged_retry(task, &fingerprint)
-    {
+    if is_unchanged_retry(task, &fingerprint) {
         return Ok(Execution::Failure {
             task_id: task.id.clone(),
             message: "retry rejected because worker, model, instructions, and workspace strategy are unchanged".to_string(),
@@ -212,9 +199,7 @@ pub(super) async fn execute_external_worker(
             let message = if changed.is_empty() {
                 error.to_string()
             } else {
-                format!(
-                    "worker failed after modifying files: {changed:?}; original error: {error}"
-                )
+                format!("worker failed after modifying files: {changed:?}; original error: {error}")
             };
             return Ok(Execution::Failure {
                 task_id: task.id.clone(),

@@ -3,7 +3,7 @@ use super::*;
 pub(super) fn status(workspace: &Path, requested: Option<&str>) -> Result<Value> {
     let id = latest_id(workspace, requested)?;
     let run = store(workspace).load(&id)?;
-    Ok(run_response(workspace, &run)?)
+    run_response(workspace, &run)
 }
 
 pub(super) fn run_response(workspace: &Path, run: &Run) -> Result<Value> {
@@ -29,7 +29,10 @@ pub(super) async fn resume(workspace: &Path, requested: Option<&str>) -> Result<
         run.status = RunStatus::Working;
         store(workspace).append_event(&id, EventKind::RunResumed, json!({}))?;
     }
-    if !matches!(run.status, RunStatus::ManagerRequired | RunStatus::AwaitingApproval) {
+    if !matches!(
+        run.status,
+        RunStatus::ManagerRequired | RunStatus::AwaitingApproval
+    ) {
         advance_run(workspace, &cfg, &mut run).await?;
     }
     store(workspace).save(&run)?;

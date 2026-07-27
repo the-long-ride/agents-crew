@@ -14,10 +14,7 @@ pub enum Operation {
     Commit,
     Push,
     Deploy,
-    ManagerWrite {
-        files: usize,
-        changed_lines: usize,
-    },
+    ManagerWrite { files: usize, changed_lines: usize },
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

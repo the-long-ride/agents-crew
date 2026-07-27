@@ -25,11 +25,11 @@ jobs:
         id: version
         shell: bash
         run: echo "tag=${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
-      - name: Install Rust 1.78
+      - name: Install Rust 1.86.0
         run: |
-          rustup toolchain install 1.78.0 --profile minimal
-          rustup component add --toolchain 1.78.0 rustfmt clippy
-          rustup default 1.78.0
+          rustup toolchain install 1.86.0 --profile minimal
+          rustup component add --toolchain 1.86.0 rustfmt clippy
+          rustup default 1.86.0
       - name: Verify versions
         run: node scripts/verify-version.mjs "${{ steps.version.outputs.tag }}"
       - name: Verify delivery contract
@@ -64,7 +64,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
             package_shell: bash
           - id: macos-x64
-            runner: macos-13
+            runner: macos-15-intel
             target: x86_64-apple-darwin
             package_shell: bash
           - id: macos-arm64
@@ -89,10 +89,10 @@ jobs:
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
       - name: Install target toolchain
         shell: bash
-        run: rustup toolchain install 1.78.0 --profile minimal --target "${{ matrix.target }}"
+        run: rustup toolchain install 1.86.0 --profile minimal --target "${{ matrix.target }}"
       - name: Build release binaries
         shell: bash
-        run: cargo +1.78.0 build --release --target "${{ matrix.target }}" --bin crew --bin agents-crew
+        run: cargo +1.86.0 build --release --target "${{ matrix.target }}" --bin crew --bin agents-crew
       - name: Package Unix release
         if: matrix.package_shell == 'bash'
         shell: bash
@@ -143,7 +143,7 @@ jobs:
       id-token: write
     env:
       AGENTS_CREW_GITHUB_REPOSITORY: ${{ github.repository }}
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -170,6 +170,15 @@ jobs:
         run: |
           npm install --ignore-scripts --no-package-lock
           npm run check
-      - name: Publish npm installer with OIDC or token fallback
+      - name: Publish npm installer with trusted publishing
+        if: env.NPM_TOKEN == ''
         working-directory: installer
+        env:
+          NODE_AUTH_TOKEN: ''
+        run: npm publish --access public
+      - name: Publish npm installer with bootstrap token
+        if: env.NPM_TOKEN != ''
+        working-directory: installer
+        env:
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
         run: npm publish --access public

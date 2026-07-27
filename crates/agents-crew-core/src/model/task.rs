@@ -1,4 +1,4 @@
-use super::{Capability, Evidence, Role, TestResult, TaskStatus, WorkerResultStatus};
+use super::{Capability, Evidence, Role, TaskStatus, TestResult, WorkerResultStatus};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{

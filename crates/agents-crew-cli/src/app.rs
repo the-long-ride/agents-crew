@@ -4,10 +4,10 @@ use agents_crew_cli_workers::CliWorker;
 use agents_crew_config::{validate, CrewConfig, WorkerConfig, WorkerKind};
 use agents_crew_core::{
     apply_manager_decision, create_run, record_worker_result, verify_task_result,
-    AcceptanceCriterion, ApprovalRequest, ApprovalStatus, Capability, ManagerAction,
-    ManagerCoding, ManagerDecision, ManagerIdentity, ModelFallback, Role, Run, RunStatus,
-    Scheduler, Task, TaskDraft, TaskGraph, TaskStatus, TestResult, TestStatus, WorkerResult,
-    WorkerResultStatus, WorkspaceMode,
+    AcceptanceCriterion, ApprovalRequest, ApprovalStatus, Capability, ManagerAction, ManagerCoding,
+    ManagerDecision, ManagerIdentity, ModelFallback, Role, Run, RunStatus, Scheduler, Task,
+    TaskDraft, TaskGraph, TaskStatus, TestResult, TestStatus, WorkerResult, WorkerResultStatus,
+    WorkspaceMode,
 };
 use agents_crew_git::{
     canonical_scoped_path, GitRepository, RepositorySnapshot, RepositoryWriteLock,
@@ -16,9 +16,7 @@ use agents_crew_plugins::{Host, HostPlugin};
 use agents_crew_policy::{Operation, PolicyContext, PolicyDecision, PolicyEngine};
 use agents_crew_prompts::role;
 use agents_crew_state::{EventKind, OutstandingAction, RunStore};
-use agents_crew_workers::{
-    NativeBridge, RoutingContext, Worker, WorkerRequest, WorkerRouter,
-};
+use agents_crew_workers::{NativeBridge, RoutingContext, Worker, WorkerRequest, WorkerRouter};
 use anyhow::{anyhow, Context, Result};
 use chrono::{Duration, Utc};
 use futures::future::join_all;

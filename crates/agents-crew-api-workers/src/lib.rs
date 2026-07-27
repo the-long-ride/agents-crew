@@ -99,10 +99,7 @@ impl ApiWorker {
                     HeaderValue::from_str(key)
                         .map_err(|error| WorkerError::Execution(error.to_string()))?,
                 );
-                headers.insert(
-                    "anthropic-version",
-                    HeaderValue::from_static("2023-06-01"),
-                );
+                headers.insert("anthropic-version", HeaderValue::from_static("2023-06-01"));
             }
         }
         Ok(headers)
@@ -123,10 +120,7 @@ impl ApiWorker {
 
     async fn call(&self, request: &WorkerRequest) -> Result<Value, WorkerError> {
         let key = std::env::var(&self.api_key_env).map_err(|_| {
-            WorkerError::Unavailable(format!(
-                "missing environment variable {}",
-                self.api_key_env
-            ))
+            WorkerError::Unavailable(format!("missing environment variable {}", self.api_key_env))
         })?;
         let model = request
             .model

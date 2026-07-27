@@ -14,8 +14,7 @@ impl GitRepository {
     }
 
     pub fn snapshot(&self) -> Result<RepositorySnapshot, GitError> {
-        let head = run(&self.root, &["rev-parse", "HEAD"])
-            .unwrap_or_else(|_| "unborn".to_string());
+        let head = run(&self.root, &["rev-parse", "HEAD"]).unwrap_or_else(|_| "unborn".to_string());
         let status = run(
             &self.root,
             &["status", "--porcelain=v1", "--untracked-files=all"],
@@ -104,11 +103,7 @@ impl GitRepository {
         Ok(files)
     }
 
-    pub fn create_task_worktree(
-        &self,
-        run_id: &str,
-        task_id: &str,
-    ) -> Result<PathBuf, GitError> {
+    pub fn create_task_worktree(&self, run_id: &str, task_id: &str) -> Result<PathBuf, GitError> {
         let safe_run = sanitize_ref(run_id);
         let safe_task = sanitize_ref(task_id);
         let branch = format!("agents-crew/{safe_run}/{safe_task}");
@@ -166,7 +161,14 @@ impl GitRepository {
                 )?);
             } else if self.root.join(path).is_file() {
                 let output = Command::new("git")
-                    .args(["diff", "--no-index", "--binary", "--", "/dev/null", relative])
+                    .args([
+                        "diff",
+                        "--no-index",
+                        "--binary",
+                        "--",
+                        "/dev/null",
+                        relative,
+                    ])
                     .current_dir(&self.root)
                     .output()?;
                 if !matches!(output.status.code(), Some(0) | Some(1)) {
@@ -187,7 +189,12 @@ impl GitRepository {
     pub fn apply_patch(&self, patch: &Path) -> Result<(), GitError> {
         run(
             &self.root,
-            &["apply", "--binary", "--whitespace=nowarn", path_to_str(patch)?],
+            &[
+                "apply",
+                "--binary",
+                "--whitespace=nowarn",
+                path_to_str(patch)?,
+            ],
         )?;
         Ok(())
     }

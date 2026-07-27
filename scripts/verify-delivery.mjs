@@ -22,9 +22,41 @@ const readTree = (relativePath, suffix) => {
   return files.map((path) => readFileSync(path, 'utf8')).join('\n');
 };
 
+const rootCargo = read('Cargo.toml');
+assert.match(rootCargo, /resolver\s*=\s*"3"/, 'workspace must use the Rust-version-aware dependency resolver');
+assert.match(rootCargo, /rust-version\s*=\s*"1\.86"/, 'workspace MSRV must support resolved dependencies');
+assert.match(rootCargo, /serde\s*=\s*\{\s*version\s*=\s*"=1\.0\.219"/, 'workspace must pin the Serde version tested by TOML 0.8.23');
+assert.match(rootCargo, /toml\s*=\s*"=0\.8\.23"/, 'workspace must use the TOML release compatible with toml_edit 0.22.27');
+
+const rustToolchain = read('rust-toolchain.toml');
+assert.match(rustToolchain, /channel\s*=\s*"1\.86\.0"/, 'local Rust toolchain must pin Rust 1.86.0');
+assert.match(rustToolchain, /"rustfmt"/, 'local Rust toolchain must include rustfmt');
+assert.match(rustToolchain, /"clippy"/, 'local Rust toolchain must include clippy');
+
 const cargo = read('crates/agents-crew-cli/Cargo.toml');
 assert.match(cargo, /name\s*=\s*"crew"/, 'Cargo CLI must expose crew');
 assert.match(cargo, /name\s*=\s*"agents-crew"/, 'Cargo CLI must retain agents-crew');
+assert.match(cargo, /name\s*=\s*"crew"[\s\S]*?path\s*=\s*"src\/main\.rs"/, 'crew must use the primary entry point');
+assert.match(cargo, /name\s*=\s*"agents-crew"[\s\S]*?path\s*=\s*"src\/bin\/agents-crew\.rs"/, 'compatibility binary must use a distinct entry point');
+
+const cliLibrary = read('crates/agents-crew-cli/src/lib.rs');
+assert.match(cliLibrary, /mod app;/, 'CLI library must own the app module');
+assert.match(cliLibrary, /mod args;/, 'CLI library must own the argument module');
+assert.match(cliLibrary, /mod output;/, 'CLI library must own the output module');
+assert.match(cliLibrary, /pub async fn run_cli\(\)/, 'CLI library must expose the shared runner');
+
+for (const binaryPath of [
+  'crates/agents-crew-cli/src/main.rs',
+  'crates/agents-crew-cli/src/bin/agents-crew.rs',
+]) {
+  const binary = read(binaryPath);
+  assert.match(binary, /agents_crew_cli::run_cli\(\)/, `${binaryPath} must call the shared CLI runner`);
+  assert.doesNotMatch(binary, /#\[path\s*=|mod\s+(?:app|args|output)\s*;/, `${binaryPath} must not duplicate source modules`);
+}
+
+const stateStore = read('crates/agents-crew-state/src/store.rs');
+assert.doesNotMatch(stateStore, /\.map_or\(true,/, 'state-store optional checks must remain Clippy-clean');
+assert.ok((stateStore.match(/\.is_none_or\(/g) ?? []).length >= 2, 'state store must use Option::is_none_or for both optional checks');
 
 const app = readTree('crates/agents-crew-cli/src', '.rs');
 assert.match(app, /"crew plugin install <host>"/);
@@ -35,6 +67,8 @@ assert.match(plugin, /`crew manager start/, 'generated commands must use crew');
 assert.doesNotMatch(plugin, /`agents-crew (?:manager|run|plan|init|doctor|status|resume|pause|approve|reject|cancel|config)/, 'generated commands must not require compatibility name');
 
 for (const path of [
+  'crates/agents-crew-cli/src/lib.rs',
+  'crates/agents-crew-cli/src/bin/agents-crew.rs',
   'installer/package.json',
   'installer/tsconfig.json',
   'installer/src/cli.ts',
@@ -52,6 +86,7 @@ for (const path of [
   'installer/README.md',
   'installer/LICENSE',
   '.github/workflows/release.yml',
+  'rust-toolchain.toml',
   'scripts/verify-structure.mjs',
   'scripts/check-lint.mjs',
   'scripts/check-coverage.mjs',
@@ -71,6 +106,11 @@ assert.ok(packageJson.files.includes('LICENSE'));
 assert.equal(packageJson.publishConfig.provenance, true);
 assert.equal(packageJson.publishConfig.access, 'public');
 assert.equal(packageJson.publishConfig.registry, 'https://registry.npmjs.org/');
+assert.equal(
+  packageJson.scripts.lint,
+  'npm run build:metadata && node ./scripts/lint.mjs',
+  'lint must generate build metadata before type checking',
+);
 for (const script of ['lint', 'test', 'coverage', 'pack:check', 'check', 'prepack']) {
   assert.ok(packageJson.scripts[script], `installer package missing ${script} script`);
 }
@@ -80,17 +120,33 @@ for (const threshold of ['--test-coverage-lines=85', '--test-coverage-functions=
 const installerSources = readTree('installer/src', '.ts');
 assert.doesNotMatch(installerSources, /^\s*\/\/\s*@ts-nocheck/m, 'installer sources must remain type checked');
 
+const verifyStructure = read('scripts/verify-structure.mjs');
+assert.doesNotMatch(
+  verifyStructure,
+  /missingReadmes|alternateFolderDocs|README\.md/,
+  'structure verification must not require per-folder README files',
+);
+
 const release = read('.github/workflows/release.yml');
-for (const runner of ['ubuntu-latest', 'ubuntu-24.04-arm', 'macos-13', 'macos-14', 'windows-latest']) {
+assert.match(release, /1\.86\.0/, 'release workflow must use the pinned supported Rust toolchain');
+assert.doesNotMatch(release, /1\.(?:78|85)(?:\.[01])?/, 'release workflow must not use obsolete Rust toolchains');
+for (const runner of ['ubuntu-latest', 'ubuntu-24.04-arm', 'macos-15-intel', 'macos-14', 'windows-latest']) {
   assert.ok(release.includes(runner), `release matrix missing ${runner}`);
 }
 for (const token of ['SHA256SUMS', 'gh release', 'npm publish', 'id-token: write', 'node-version: 24', 'npm run check', 'repository.url=git+https://github.com/${GITHUB_REPOSITORY}.git', 'AGENTS_CREW_GITHUB_REPOSITORY']) {
   assert.ok(release.includes(token), `release workflow missing ${token}`);
 }
 assert.doesNotMatch(release, /npm publish was skipped|Explain skipped npm publish/, 'npm publishing must fail rather than silently skip');
-assert.match(release, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/, 'release keeps token fallback for the first publish');
+assert.match(release, /NPM_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/, 'release keeps token fallback for the first publish');
+assert.match(release, /NODE_AUTH_TOKEN: ''/, 'OIDC publish must clear token authentication');
 
 const ci = read('.github/workflows/ci.yml');
+assert.match(ci, /dtolnay\/rust-toolchain@1\.86\.0/, 'CI must use the pinned supported Rust toolchain');
+assert.match(ci, /fail-fast:\s*false/, 'CI must run every operating-system matrix entry even when one fails');
+for (const runner of ['ubuntu-latest', 'windows-latest', 'macos-latest']) {
+  assert.ok(ci.includes(runner), `CI Rust matrix missing ${runner}`);
+}
+assert.doesNotMatch(ci, /1\.(?:78|85)(?:\.[01])?/, 'CI must not use obsolete Rust toolchains');
 assert.match(ci, /node-version: 24/);
 assert.match(ci, /npm run check/);
 

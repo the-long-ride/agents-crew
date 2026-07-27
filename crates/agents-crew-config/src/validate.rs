@@ -53,9 +53,9 @@ pub fn validate(config: &CrewConfig) -> Result<(), ConfigError> {
             )));
         }
         if let Some(environment) = &worker.api_key_env {
-            let valid = environment
-                .chars()
-                .all(|character| character == '_' || character.is_ascii_uppercase() || character.is_ascii_digit());
+            let valid = environment.chars().all(|character| {
+                character == '_' || character.is_ascii_uppercase() || character.is_ascii_digit()
+            });
             if !valid {
                 return Err(ConfigError::Invalid(format!(
                     "invalid api key env {environment}"
@@ -69,9 +69,7 @@ pub fn validate(config: &CrewConfig) -> Result<(), ConfigError> {
             )));
         }
         if worker.kind == WorkerKind::Api
-            && (worker.provider.is_none()
-                || worker.model.is_none()
-                || worker.api_key_env.is_none())
+            && (worker.provider.is_none() || worker.model.is_none() || worker.api_key_env.is_none())
         {
             return Err(ConfigError::Invalid(format!(
                 "api worker {} needs provider, model, api_key_env",

@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Rust 1.78+
+- Rust 1.86+
 - Git
 - Node.js 20+ for the installer
 - TypeScript 5.8 for installer builds

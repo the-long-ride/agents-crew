@@ -27,19 +27,19 @@ pub(super) fn role_agent_content(host: Host, role_kind: Role) -> String {
             } else {
                 "Read, Bash"
             };
-            format!(
-                "---\nname: {name}\ndescription: {description}\ntools: {tools}\n---\n\n"
-            )
+            format!("---\nname: {name}\ndescription: {description}\ntools: {tools}\n---\n\n")
         }
         Host::Opencode => {
-            let edit = if role_can_write(role_kind) { "allow" } else { "deny" };
+            let edit = if role_can_write(role_kind) {
+                "allow"
+            } else {
+                "deny"
+            };
             format!(
                 "---\ndescription: {description}\nmode: subagent\npermission:\n  edit: {edit}\n  bash: allow\n---\n\n"
             )
         }
-        Host::Antigravity => format!(
-            "---\nname: {name}\ndescription: {description}\n---\n\n"
-        ),
+        Host::Antigravity => format!("---\nname: {name}\ndescription: {description}\n---\n\n"),
     };
     format!(
         "{front_matter}{}\n\nObey the capability envelope, workspace, context file, and output schema supplied by the Rust manager action. Return only the requested normalized result.",
@@ -49,18 +49,16 @@ pub(super) fn role_agent_content(host: Host, role_kind: Role) -> String {
 
 pub(super) fn command_content(host: Host, name: &str, description: &str) -> String {
     let front_matter = match host {
-        Host::Opencode => format!(
-            "---\ndescription: {description}\nagent: agents-crew-manager\n---\n\n"
-        ),
+        Host::Opencode => {
+            format!("---\ndescription: {description}\nagent: agents-crew-manager\n---\n\n")
+        }
         Host::ClaudeCode => format!("---\ndescription: {description}\n---\n\n"),
-        Host::Antigravity => format!(
-            "---\nname: {name}\ndescription: {description}\n---\n\n"
-        ),
+        Host::Antigravity => format!("---\nname: {name}\ndescription: {description}\n---\n\n"),
         Host::Codex => String::new(),
     };
     let body = match name {
         "crew-run" => format!(
-            "Start with `crew manager start --goal \"$ARGUMENTS\" --host {} --json`. Follow only returned actions. For `plan` or `review`, write the requested schema to a temporary JSON file and submit it. For `dispatch_native`, invoke the generated `agents-crew-<role>` subagent (or inject `.agents-crew/roles/<role>.md`) with exactly the capability envelope and workspace, then submit normalized WorkerResult JSON. Repeatedly run `crew manager step --run <run-id> --json` until completed, approval is needed, or blocked. Never invent action IDs or bypass the Rust policy engine.\n",
+            "Start with `crew manager start --goal \"$ARGUMENTS\" --host {} --json`. Follow only returned actions. For `plan` or `review`, write the requested schema to a temporary JSON file and submit it via `crew manager submit`. For `dispatch_native`, invoke the generated `agents-crew-<role>` subagent (or inject `.agents-crew/roles/<role>.md`) with exactly the capability envelope and workspace, then submit normalized WorkerResult JSON via `crew manager submit`. Repeatedly run `crew manager step --run <run-id> --json` until completed, approval is needed, or blocked. Never invent action IDs or bypass the Rust policy engine.\n",
             host.name()
         ),
         "crew-plan" => "Run `crew --json plan $ARGUMENTS`. Explain the task DAG, workers, write scopes, approvals, and verification without making implementation changes.\n".to_string(),

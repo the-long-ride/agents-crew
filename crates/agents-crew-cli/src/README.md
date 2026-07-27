@@ -8,7 +8,9 @@ Composes configuration, state, policy, scheduling, workers, Git isolation, plugi
 
 | Path | Responsibility |
 | --- | --- |
-| `main.rs` | Tokio entry point, CLI parse, JSON/text output, and process exit behavior. |
+| `lib.rs` | Shared CLI module ownership, argument parsing, output handling, and exit-code calculation. |
+| `main.rs` | Primary `crew` Tokio entry point. |
+| `bin/agents-crew.rs` | Compatibility `agents-crew` Tokio entry point using the shared runner. |
 | `args.rs` | Clap command and argument definitions. |
 | `app.rs` | Top-level command dispatcher and orchestration module wiring. |
 | `output.rs` | Stable JSON/text response rendering. |

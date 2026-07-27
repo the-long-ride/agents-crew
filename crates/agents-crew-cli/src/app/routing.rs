@@ -7,8 +7,7 @@ pub(super) fn prepare_task_workspace(workspace: &Path, run: &Run, task: &Task) -
                 return Ok(binding.clone());
             }
         }
-        return Ok(GitRepository::discover(workspace)?
-            .create_task_worktree(&run.id, &task.id)?);
+        return Ok(GitRepository::discover(workspace)?.create_task_worktree(&run.id, &task.id)?);
     }
     Ok(workspace.to_path_buf())
 }
@@ -36,7 +35,10 @@ pub(super) fn strategy_fingerprint(
     format!("{:016x}", hasher.finish())
 }
 
-pub(super) fn select_native_worker<'a>(cfg: &'a CrewConfig, task: &Task) -> Option<&'a WorkerConfig> {
+pub(super) fn select_native_worker<'a>(
+    cfg: &'a CrewConfig,
+    task: &Task,
+) -> Option<&'a WorkerConfig> {
     cfg.workers
         .iter()
         .filter(|worker| {

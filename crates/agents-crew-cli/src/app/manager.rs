@@ -108,7 +108,8 @@ pub(super) fn submit_manager_result(
                 &claimed_capabilities,
             )?;
             let mut state = run_store.load(run_id)?;
-            if let Err(error) = integrate_native_workspace(workspace, &cfg, &mut state, &mut result) {
+            if let Err(error) = integrate_native_workspace(workspace, &cfg, &mut state, &mut result)
+            {
                 mark_task_failure(workspace, &mut state, &result.task_id, &error.to_string())?;
                 run_store.save(&state)?;
                 return run_response(workspace, &state);

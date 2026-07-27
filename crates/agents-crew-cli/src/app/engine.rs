@@ -76,7 +76,10 @@ pub(super) async fn advance_run(workspace: &Path, cfg: &CrewConfig, run: &mut Ru
             let run_ref = &*run;
             async move {
                 let task_id = task.id.clone();
-                (task_id, execute_task(workspace, cfg, router_ref, run_ref, &task).await)
+                (
+                    task_id,
+                    execute_task(workspace, cfg, router_ref, run_ref, &task).await,
+                )
             }
         }))
         .await;
@@ -115,7 +118,10 @@ pub(super) async fn advance_run(workspace: &Path, cfg: &CrewConfig, run: &mut Ru
                 let run_ref = &*run;
                 async move {
                     let task_id = task.id.clone();
-                    (task_id, execute_task(workspace, cfg, router_ref, run_ref, &task).await)
+                    (
+                        task_id,
+                        execute_task(workspace, cfg, router_ref, run_ref, &task).await,
+                    )
                 }
             }))
             .await;
@@ -157,7 +163,11 @@ pub(super) fn mark_running(run: &mut Run, ids: &[String]) {
     }
 }
 
-pub(super) async fn finish_or_block(workspace: &Path, cfg: &CrewConfig, run: &mut Run) -> Result<()> {
+pub(super) async fn finish_or_block(
+    workspace: &Path,
+    cfg: &CrewConfig,
+    run: &mut Run,
+) -> Result<()> {
     if !run
         .tasks
         .values()

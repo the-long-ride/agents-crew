@@ -121,7 +121,7 @@ npx @agents-crew/installer install \
 cargo install --path crates/agents-crew-cli --bins
 ```
 
-This installs both `crew` and `agents-crew`. Building requires Rust 1.78 or newer; installing prebuilt release binaries does not.
+This installs both `crew` and `agents-crew`. Building requires Rust 1.86 or newer; installing prebuilt release binaries does not.
 
 ## Upgrade
 

@@ -145,8 +145,14 @@ pub(super) fn cleanup_failed_binding(workspace: &Path, cfg: &CrewConfig, binding
     }
 }
 
-pub(super) fn mark_task_failure(workspace: &Path, run: &mut Run, task_id: &str, message: &str) -> Result<()> {
-    let repository_contaminated = (message.contains("read-only") && message.contains("modified files"))
+pub(super) fn mark_task_failure(
+    workspace: &Path,
+    run: &mut Run,
+    task_id: &str,
+    message: &str,
+) -> Result<()> {
+    let repository_contaminated = (message.contains("read-only")
+        && message.contains("modified files"))
         || message.contains("write outside scope")
         || message.contains("failed after modifying files")
         || message.contains("invalid result after modifying files");

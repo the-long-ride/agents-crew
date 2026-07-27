@@ -45,16 +45,8 @@ fn test_task(id: &str, role_kind: Role, writes: bool) -> Task {
 fn manager_coding_limit_does_not_block_native_implementer_subagent() {
     let directory = tempdir().unwrap();
     let run = test_run(directory.path(), ManagerCoding::Never);
-    assert!(enforce_manager_coding(
-        &run,
-        &test_task("implement", Role::Implementer, true)
-    )
-    .is_ok());
-    assert!(enforce_manager_coding(
-        &run,
-        &test_task("manager-edit", Role::Manager, true)
-    )
-    .is_err());
+    assert!(enforce_manager_coding(&run, &test_task("implement", Role::Implementer, true)).is_ok());
+    assert!(enforce_manager_coding(&run, &test_task("manager-edit", Role::Manager, true)).is_err());
 }
 
 #[test]
@@ -70,10 +62,7 @@ fn independent_review_must_use_worker_distinct_from_every_writer() {
     run.tasks.insert(writer.id.clone(), writer);
     run.tasks.insert(reviewer.id.clone(), reviewer);
     assert!(!has_independent_review(&run));
-    run.tasks
-        .get_mut("review")
-        .unwrap()
-        .assigned_worker = Some("other-worker".to_string());
+    run.tasks.get_mut("review").unwrap().assigned_worker = Some("other-worker".to_string());
     assert!(has_independent_review(&run));
 }
 
@@ -97,16 +86,11 @@ fn interrupted_task_requires_manager_recovery_review() {
 
 #[test]
 fn retry_fingerprint_survives_running_transition() {
-    let directory = tempdir().unwrap();
+    let _directory = tempdir().unwrap();
     let mut task = test_task("retry", Role::Implementer, true);
     task.attempt = 1;
     task.status = TaskStatus::Running;
-    let fingerprint = strategy_fingerprint(
-        "worker",
-        Some("model"),
-        &task,
-        WorkspaceMode::Current,
-    );
+    let fingerprint = strategy_fingerprint("worker", Some("model"), &task, WorkspaceMode::Current);
     task.strategy_fingerprint = Some(fingerprint.clone());
     assert!(is_unchanged_retry(&task, &fingerprint));
 }

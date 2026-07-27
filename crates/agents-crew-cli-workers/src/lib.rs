@@ -237,7 +237,11 @@ fn safe_environment() -> BTreeMap<String, String> {
         "COMSPEC",
     ]
     .into_iter()
-    .filter_map(|key| std::env::var(key).ok().map(|value| (key.to_string(), value)))
+    .filter_map(|key| {
+        std::env::var(key)
+            .ok()
+            .map(|value| (key.to_string(), value))
+    })
     .collect()
 }
 

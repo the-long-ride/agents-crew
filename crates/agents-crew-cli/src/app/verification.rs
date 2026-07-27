@@ -1,6 +1,9 @@
 use super::*;
 
-pub(super) async fn run_verification(workspace: &Path, commands: &[Vec<String>]) -> Vec<TestResult> {
+pub(super) async fn run_verification(
+    workspace: &Path,
+    commands: &[Vec<String>],
+) -> Vec<TestResult> {
     let mut results = Vec::new();
     for parts in commands {
         if parts.is_empty() {

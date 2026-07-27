@@ -37,9 +37,8 @@ impl HostPlugin {
         if self.host == Host::Antigravity {
             files.push((
                 workspace.join(".agents/plugins/agents-crew/plugin.json"),
-                format!(
-                    "{{\n  \"name\": \"agents-crew\",\n  \"version\": 1,\n  \"description\": \"Rust-enforced multi-agent loop manager\"\n}}\n"
-                ),
+                "{\n  \"name\": \"agents-crew\",\n  \"version\": 1,\n  \"description\": \"Rust-enforced multi-agent loop manager\"\n}\n"
+                    .to_string(),
             ));
         }
         files

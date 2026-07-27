@@ -46,14 +46,16 @@ pub(super) fn integrate_native_workspace(
     }
 
     let repository = GitRepository::discover(workspace)?;
-    let snapshot: RepositorySnapshot = serde_json::from_slice(&fs::read(
-        native_snapshot_path(workspace, &run.id, &task.id),
-    )?)?;
+    let snapshot: RepositorySnapshot = serde_json::from_slice(&fs::read(native_snapshot_path(
+        workspace, &run.id, &task.id,
+    ))?)?;
     let changed = repository.changed_files_since(&snapshot)?;
     if task.writes() {
         repository.validate_write_scope(&task.write_scope, &changed)?;
     } else if !changed.is_empty() {
-        return Err(anyhow!("read-only native worker modified files: {changed:?}"));
+        return Err(anyhow!(
+            "read-only native worker modified files: {changed:?}"
+        ));
     }
     result.files_changed = changed.clone();
     if let Err(error) = verify_task_result(&task, result) {

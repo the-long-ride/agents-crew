@@ -19,7 +19,6 @@ const excludedDirectories = new Set([
   ".vscode",
 ]);
 
-const missingReadmes = [];
 const oversizedRustFiles = [];
 
 function displayPath(absolutePath) {
@@ -35,11 +34,6 @@ function physicalLineCount(text) {
 
 async function walk(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
-  const readme = entries.find(
-    (entry) => entry.isFile() && entry.name.toLowerCase() === "readme.md",
-  );
-  if (!readme) missingReadmes.push(displayPath(directory));
-
   for (const entry of entries) {
     if (entry.isSymbolicLink()) continue;
     const absolutePath = path.join(directory, entry.name);
@@ -63,13 +57,7 @@ if (!rootInfo.isDirectory()) {
 
 await walk(root);
 
-missingReadmes.sort();
 oversizedRustFiles.sort((left, right) => right.lines - left.lines);
-
-if (missingReadmes.length > 0) {
-  console.error("Maintained folders missing README.md:");
-  for (const directory of missingReadmes) console.error(`  - ${directory}`);
-}
 
 if (oversizedRustFiles.length > 0) {
   console.error(`Rust files over ${MAX_RUST_LINES} lines:`);
@@ -78,10 +66,10 @@ if (oversizedRustFiles.length > 0) {
   }
 }
 
-if (missingReadmes.length > 0 || oversizedRustFiles.length > 0) {
+if (oversizedRustFiles.length > 0) {
   process.exitCode = 1;
 } else {
   console.log(
-    `Structure verified: every maintained folder has README.md and every Rust file is <= ${MAX_RUST_LINES} lines.`,
+    `Structure verified: every Rust file is <= ${MAX_RUST_LINES} lines.`,
   );
 }

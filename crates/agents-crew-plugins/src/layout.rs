@@ -21,7 +21,9 @@ pub(super) fn role_agent_path(workspace: &Path, host: Host, role: Role) -> PathB
     match host {
         Host::Codex => workspace.join(".codex/agents").join(format!("{name}.md")),
         Host::ClaudeCode => workspace.join(".claude/agents").join(format!("{name}.md")),
-        Host::Opencode => workspace.join(".opencode/agents").join(format!("{name}.md")),
+        Host::Opencode => workspace
+            .join(".opencode/agents")
+            .join(format!("{name}.md")),
         Host::Antigravity => workspace
             .join(".agents/plugins/agents-crew/skills")
             .join(name)
@@ -34,8 +36,9 @@ pub(super) fn manager_path(workspace: &Path, host: Host) -> PathBuf {
         Host::Codex => workspace.join(".codex/agents/agents-crew-manager.md"),
         Host::ClaudeCode => workspace.join(".claude/agents/agents-crew-manager.md"),
         Host::Opencode => workspace.join(".opencode/agents/agents-crew-manager.md"),
-        Host::Antigravity => workspace
-            .join(".agents/plugins/agents-crew/rules/agents-crew-manager.md"),
+        Host::Antigravity => {
+            workspace.join(".agents/plugins/agents-crew/rules/agents-crew-manager.md")
+        }
     }
 }
 

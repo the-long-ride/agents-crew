@@ -28,7 +28,11 @@ pub(super) fn enforce_manager_coding(run: &Run, task: &Task) -> Result<()> {
     }
 }
 
-pub(super) fn enforce_task_policy(cfg: &CrewConfig, run: &Run, task: &Task) -> Result<Option<Execution>> {
+pub(super) fn enforce_task_policy(
+    cfg: &CrewConfig,
+    run: &Run,
+    task: &Task,
+) -> Result<Option<Execution>> {
     for capability in &task.capabilities {
         let operation = match capability {
             Capability::Network => Some(Operation::Network),
@@ -48,7 +52,10 @@ pub(super) fn enforce_task_policy(cfg: &CrewConfig, run: &Run, task: &Task) -> R
             run,
             task,
             operation,
-            format!("Task {} requires guarded capability {:?}", task.id, capability),
+            format!(
+                "Task {} requires guarded capability {:?}",
+                task.id, capability
+            ),
         )? {
             return Ok(Some(execution));
         }

@@ -57,7 +57,7 @@ The default binary directory is `~/.agents-crew/bin`. Add it to `PATH` when the 
 cargo install --path crates/agents-crew-cli --bins
 ```
 
-Rust 1.78 or newer is required only when building from source. End users of GitHub Release binaries do not need Rust.
+Rust 1.86 or newer is required only when building from source. End users of GitHub Release binaries do not need Rust.
 
 ## Start in one repository
 
