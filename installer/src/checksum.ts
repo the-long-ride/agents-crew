@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 
@@ -21,9 +20,12 @@ export async function sha256File(path: string): Promise<string> {
 }
 
 export async function verifyChecksum(path: string, expected: string): Promise<void> {
-  if (!/^[a-fA-F0-9]{64}$/.test(expected)) throw new Error('Expected checksum must be a SHA-256 hex value');
+  if (!/^[a-fA-F0-9]{64}$/.test(expected)) {
+    throw new Error('Expected checksum must be a SHA-256 hex value');
+  }
+  const normalizedExpected = expected.toLowerCase();
   const actual = await sha256File(path);
-  if (actual !== expected.toLowerCase()) {
-    throw new Error(`Checksum mismatch for ${path}: expected ${expected.toLowerCase()}, received ${actual}`);
+  if (actual !== normalizedExpected) {
+    throw new Error(`Checksum mismatch for ${path}: expected ${normalizedExpected}, received ${actual}`);
   }
 }

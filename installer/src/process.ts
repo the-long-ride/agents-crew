@@ -1,9 +1,22 @@
-// @ts-nocheck
 import { spawn } from 'node:child_process';
 
-export interface CommandResult { stdout: string; stderr: string; code: number; }
+export interface CommandResult {
+  stdout: string;
+  stderr: string;
+  code: number;
+}
 
-export async function runCommand(command: string, args: string[], options: { cwd?: string; env?: Record<string, string>; quiet?: boolean } = {}): Promise<CommandResult> {
+export interface CommandOptions {
+  cwd?: string;
+  env?: Record<string, string>;
+  quiet?: boolean;
+}
+
+export async function runCommand(
+  command: string,
+  args: string[],
+  options: CommandOptions = {},
+): Promise<CommandResult> {
   return await new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
@@ -16,10 +29,16 @@ export async function runCommand(command: string, args: string[], options: { cwd
     let stderr = '';
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => { stdout += chunk; if (!options.quiet) process.stdout.write(chunk); });
-    child.stderr.on('data', (chunk) => { stderr += chunk; if (!options.quiet) process.stderr.write(chunk); });
+    child.stdout.on('data', (chunk: string) => {
+      stdout += chunk;
+      if (!options.quiet) process.stdout.write(chunk);
+    });
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk;
+      if (!options.quiet) process.stderr.write(chunk);
+    });
     child.on('error', reject);
-    child.on('close', (code) => {
+    child.on('close', (code: number | null) => {
       const result = { stdout, stderr, code: code ?? 1 };
       if (result.code !== 0) {
         reject(new Error(`${command} ${args.join(' ')} exited ${result.code}${stderr ? `: ${stderr.trim()}` : ''}`));

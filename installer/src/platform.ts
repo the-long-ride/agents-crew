@@ -1,11 +1,10 @@
-// @ts-nocheck
 export interface ReleaseTarget {
   triple: string;
   extension: 'tar.gz' | 'zip';
   windows: boolean;
 }
 
-const TARGETS = new Map([
+const TARGETS = new Map<string, ReleaseTarget>([
   ['linux:x64', { triple: 'x86_64-unknown-linux-gnu', extension: 'tar.gz', windows: false }],
   ['linux:arm64', { triple: 'aarch64-unknown-linux-gnu', extension: 'tar.gz', windows: false }],
   ['darwin:x64', { triple: 'x86_64-apple-darwin', extension: 'tar.gz', windows: false }],

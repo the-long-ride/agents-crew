@@ -42,10 +42,19 @@ for (const path of [
   'installer/src/checksum.ts',
   'installer/src/archive.ts',
   'installer/src/install.ts',
+  'installer/src/node-shims.d.ts',
+  'installer/scripts/lint.mjs',
+  'installer/test/cli.test.mjs',
+  'installer/test/download.test.mjs',
+  'installer/test/install.test.mjs',
+  'installer/test/process.test.mjs',
+  'installer/test/prompt.test.mjs',
   'installer/README.md',
   'installer/LICENSE',
   '.github/workflows/release.yml',
   'scripts/verify-structure.mjs',
+  'scripts/check-lint.mjs',
+  'scripts/check-coverage.mjs',
   'scripts/package-release.sh',
   'scripts/package-release.ps1',
   'docs/installation.md',
@@ -54,19 +63,36 @@ for (const path of [
 
 const packageJson = JSON.parse(read('installer/package.json'));
 assert.equal(packageJson.type, 'module');
-assert.equal(packageJson.engines.node, '>=20');
+assert.notEqual(packageJson.private, true, 'installer package must be publishable');
+assert.equal(packageJson.engines.node, '>=20.0.0');
 assert.ok(packageJson.bin['agents-crew-install']);
 assert.ok(packageJson.files.includes('dist'));
 assert.ok(packageJson.files.includes('LICENSE'));
 assert.equal(packageJson.publishConfig.provenance, true);
+assert.equal(packageJson.publishConfig.access, 'public');
+assert.equal(packageJson.publishConfig.registry, 'https://registry.npmjs.org/');
+for (const script of ['lint', 'test', 'coverage', 'pack:check', 'check', 'prepack']) {
+  assert.ok(packageJson.scripts[script], `installer package missing ${script} script`);
+}
+for (const threshold of ['--test-coverage-lines=85', '--test-coverage-functions=85', '--test-coverage-branches=85']) {
+  assert.ok(packageJson.scripts.coverage.includes(threshold), `coverage script missing ${threshold}`);
+}
+const installerSources = readTree('installer/src', '.ts');
+assert.doesNotMatch(installerSources, /^\s*\/\/\s*@ts-nocheck/m, 'installer sources must remain type checked');
 
 const release = read('.github/workflows/release.yml');
 for (const runner of ['ubuntu-latest', 'ubuntu-24.04-arm', 'macos-13', 'macos-14', 'windows-latest']) {
   assert.ok(release.includes(runner), `release matrix missing ${runner}`);
 }
-for (const token of ['SHA256SUMS', 'gh release', 'npm publish', 'provenance', 'AGENTS_CREW_GITHUB_REPOSITORY']) {
+for (const token of ['SHA256SUMS', 'gh release', 'npm publish', 'id-token: write', 'node-version: 24', 'npm run check', 'repository.url=git+https://github.com/${GITHUB_REPOSITORY}.git', 'AGENTS_CREW_GITHUB_REPOSITORY']) {
   assert.ok(release.includes(token), `release workflow missing ${token}`);
 }
+assert.doesNotMatch(release, /npm publish was skipped|Explain skipped npm publish/, 'npm publishing must fail rather than silently skip');
+assert.match(release, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/, 'release keeps token fallback for the first publish');
+
+const ci = read('.github/workflows/ci.yml');
+assert.match(ci, /node-version: 24/);
+assert.match(ci, /npm run check/);
 
 const shellPackage = read('scripts/package-release.sh');
 assert.match(shellPackage, /crew/);

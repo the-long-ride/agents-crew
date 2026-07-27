@@ -432,11 +432,11 @@ More details: [docs/troubleshooting.md](docs/troubleshooting.md).
 ## Development
 
 ```bash
-node scripts/verify-structure.mjs
-cargo fmt --all
-cargo clippy --workspace --all-targets --all-features
+node scripts/check-lint.mjs
 cargo build --workspace
 cargo test --workspace
+node scripts/check-coverage.mjs
+node scripts/verify-delivery.mjs
 ```
 
 Repository structure rules are enforced in CI:
@@ -447,4 +447,4 @@ Repository structure rules are enforced in CI:
 
 CI uses deterministic fake-agent fixtures. Real CLIs and API credentials are optional local smoke tests only.
 
-See [GUIDELINE.md](GUIDELINE.md) and the approved design in [docs/superpowers/specs/2026-07-27-agent-loop-rust-plugin-design.md](docs/superpowers/specs/2026-07-27-agent-loop-rust-plugin-design.md).
+See [GUIDELINE.md](GUIDELINE.md) for contribution and manager-workflow guidance.

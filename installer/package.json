@@ -1,7 +1,7 @@
 {
   "name": "@agents-crew/installer",
   "version": "0.1.0",
-  "description": "Verified installer for the Agents Crew Rust runtime and manager integrations.",
+  "description": "Install the verified Agents Crew Rust runtime and integrations for Codex, Claude Code, OpenCode, and Antigravity.",
   "type": "module",
   "bin": {
     "agents-crew-install": "./dist/cli.js"
@@ -15,11 +15,16 @@
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "build:metadata": "node ./scripts/write-build-metadata.mjs",
     "build": "npm run clean && npm run build:metadata && tsc -p tsconfig.json",
-    "test": "npm run build && node --test test/*.test.mjs",
-    "prepack": "npm test"
+    "lint": "node ./scripts/lint.mjs",
+    "test:unit": "npm run build && node --test test/*.test.mjs",
+    "test": "npm run lint && npm run test:unit",
+    "coverage": "npm run build && node --experimental-test-coverage \"--test-coverage-include=dist/**/*.js\" \"--test-coverage-exclude=dist/generated.js\" --test-coverage-lines=85 --test-coverage-functions=85 --test-coverage-branches=85 --test test/*.test.mjs",
+    "pack:check": "npm run build && npm pack --dry-run --ignore-scripts",
+    "check": "npm run lint && npm run coverage && npm run pack:check",
+    "prepack": "npm run check"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.0.0"
   },
   "devDependencies": {
     "typescript": "5.8.3"
@@ -27,6 +32,17 @@
   "license": "MIT",
   "publishConfig": {
     "access": "public",
-    "provenance": true
-  }
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
+  "keywords": [
+    "agents",
+    "ai-agents",
+    "codex",
+    "claude-code",
+    "opencode",
+    "rust",
+    "cli",
+    "installer"
+  ]
 }

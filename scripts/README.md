@@ -1,17 +1,15 @@
-# Repository and Release Scripts
+# Repository Scripts
 
 ## Mission
 
-This folder contains cross-language verification and release-packaging tools used locally and in CI.
+These scripts validate repository contracts and package native release artifacts.
 
-## Files
+## Commands
 
-- `verify-structure.mjs` enforces folder READMEs and the 300-line Rust ceiling.
-- `verify-delivery.mjs` verifies installer/release contracts and expected assets.
-- `verify-version.mjs` checks version consistency.
-- `package-release.sh` packages Unix release binaries.
-- `package-release.ps1` packages Windows release binaries.
-
-## Editing rules
-
-Scripts must fail loudly, avoid modifying source files during verification, and behave deterministically in CI.
+- `node scripts/verify-structure.mjs` checks local README coverage and Rust file size limits.
+- `node scripts/verify-delivery.mjs` checks CLI, npm package, workflow, documentation, and release contracts.
+- `node scripts/verify-version.mjs vX.Y.Z` checks Cargo, npm, and tag version alignment.
+- `node scripts/check-lint.mjs` runs repository structure checks, Rust formatting and Clippy, and installer lint/type checks.
+- `node scripts/check-coverage.mjs` runs installer tests with 85% line, branch, and function thresholds.
+- `scripts/package-release.sh` packages Unix release binaries.
+- `scripts/package-release.ps1` packages Windows release binaries.

@@ -19,6 +19,13 @@ opencode
 antigravity
 ```
 
+Install globally when a reusable command is preferred:
+
+```bash
+npm install --global @agents-crew/installer
+agents-crew-install install --manager codex
+```
+
 Without `--manager`, the installer asks interactively. For automation:
 
 ```bash

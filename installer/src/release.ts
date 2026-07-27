@@ -1,4 +1,3 @@
-// @ts-nocheck
 export function validateRepository(repository: string): string {
   const value = repository.trim().replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '');
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value)) {
@@ -9,7 +8,7 @@ export function validateRepository(repository: string): string {
 
 export function validateVersion(version: string): string {
   const value = version.trim().replace(/^v/, '');
-  if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(value)) {
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(value)) {
     throw new Error(`Invalid release version: ${version}`);
   }
   return value;

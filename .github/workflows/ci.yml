@@ -8,10 +8,11 @@ jobs:
   structure:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
+          package-manager-cache: false
       - name: Verify repository structure
         run: node scripts/verify-structure.mjs
 
@@ -21,7 +22,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@1.78.0
         with:
           components: rustfmt, clippy
@@ -34,15 +35,15 @@ jobs:
   installer:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
+          package-manager-cache: false
       - name: Verify delivery contract
         run: node scripts/verify-delivery.mjs
-      - name: Test installer package
+      - name: Check installer package
         working-directory: installer
         run: |
           npm install --ignore-scripts --no-package-lock
-          npm test
-          npm pack --dry-run
+          npm run check

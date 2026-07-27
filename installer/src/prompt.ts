@@ -1,29 +1,46 @@
-// @ts-nocheck
-import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
-import { MANAGERS } from './args.js';
+import { createInterface } from 'node:readline/promises';
+import { MANAGERS, type ManagerHost } from './args.js';
 
-export async function selectManager(): Promise<string> {
+export interface PromptAdapter {
+  write(value: string): void;
+  question(message: string): Promise<string>;
+  close(): void;
+}
+
+function createPromptAdapter(): PromptAdapter {
   const rl = createInterface({ input, output });
+  return {
+    write: (value) => output.write(value),
+    question: async (message) => await rl.question(message),
+    close: () => rl.close(),
+  };
+}
+
+export async function selectManager(prompt: PromptAdapter = createPromptAdapter()): Promise<ManagerHost> {
   try {
-    output.write('Select the manager host:\n');
-    MANAGERS.forEach((manager, index) => output.write(`  ${index + 1}. ${manager}\n`));
-    const answer = (await rl.question('Manager [1]: ')).trim() || '1';
+    prompt.write('Select the manager host:\n');
+    MANAGERS.forEach((manager, index) => prompt.write(`  ${index + 1}. ${manager}\n`));
+    const answer = (await prompt.question('Manager [1]: ')).trim() || '1';
     const index = Number(answer) - 1;
-    if (!Number.isInteger(index) || !MANAGERS[index]) throw new Error(`Invalid manager selection: ${answer}`);
+    if (!Number.isInteger(index) || !MANAGERS[index]) {
+      throw new Error(`Invalid manager selection: ${answer}`);
+    }
     return MANAGERS[index];
   } finally {
-    rl.close();
+    prompt.close();
   }
 }
 
-export async function confirmInstall(summary: string): Promise<boolean> {
-  const rl = createInterface({ input, output });
+export async function confirmInstall(
+  summary: string,
+  prompt: PromptAdapter = createPromptAdapter(),
+): Promise<boolean> {
   try {
-    output.write(`${summary}\n`);
-    const answer = (await rl.question('Continue? [Y/n] ')).trim().toLowerCase();
+    prompt.write(`${summary}\n`);
+    const answer = (await prompt.question('Continue? [Y/n] ')).trim().toLowerCase();
     return answer === '' || answer === 'y' || answer === 'yes';
   } finally {
-    rl.close();
+    prompt.close();
   }
 }
