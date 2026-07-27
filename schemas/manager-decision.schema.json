@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-crew.dev/schemas/manager-decision.schema.json",
+  "title": "Agents Crew Manager Decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["should_continue"],
+  "properties": {
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "required_checks": {
+            "type": "array",
+            "items": { "type": "string" },
+            "default": []
+          }
+        }
+      }
+    },
+    "tasks_to_add": {
+      "type": "array",
+      "items": { "$ref": "task.schema.json" }
+    },
+    "tasks_to_cancel": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "review_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task_id", "approved", "findings"],
+        "properties": {
+          "task_id": { "type": "string" },
+          "approved": { "type": "boolean" },
+          "findings": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "approval_requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "operation", "reason", "status", "created_at", "decided_at"],
+        "properties": {
+          "id": { "type": "string" },
+          "operation": { "type": "string" },
+          "reason": { "type": "string" },
+          "status": { "const": "pending" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "decided_at": { "type": "null" }
+        }
+      }
+    },
+    "should_continue": { "type": "boolean" },
+    "completion_claim": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["summary"],
+          "properties": { "summary": { "type": "string" } }
+        },
+        { "type": "null" }
+      ]
+    }
+  }
+}

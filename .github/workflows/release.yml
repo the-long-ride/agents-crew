@@ -1,0 +1,164 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v-prefixed tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - name: Resolve tag
+        id: version
+        shell: bash
+        run: echo "tag=${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+      - name: Install Rust 1.78
+        run: |
+          rustup toolchain install 1.78.0 --profile minimal
+          rustup component add --toolchain 1.78.0 rustfmt clippy
+          rustup default 1.78.0
+      - name: Verify versions
+        run: node scripts/verify-version.mjs "${{ steps.version.outputs.tag }}"
+      - name: Verify delivery contract
+        run: node scripts/verify-delivery.mjs
+      - name: Rust checks
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
+          cargo test --workspace --all-features
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Test npm installer
+        working-directory: installer
+        run: |
+          npm install --ignore-scripts --no-package-lock
+          npm test
+          npm pack --dry-run
+
+  build:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: linux-x64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            package_shell: bash
+          - id: linux-arm64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            package_shell: bash
+          - id: macos-x64
+            runner: macos-13
+            target: x86_64-apple-darwin
+            package_shell: bash
+          - id: macos-arm64
+            runner: macos-14
+            target: aarch64-apple-darwin
+            package_shell: bash
+          - id: windows-x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            package_shell: pwsh
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - name: Resolve tag
+        id: version
+        shell: bash
+        run: |
+          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+      - name: Install target toolchain
+        shell: bash
+        run: rustup toolchain install 1.78.0 --profile minimal --target "${{ matrix.target }}"
+      - name: Build release binaries
+        shell: bash
+        run: cargo +1.78.0 build --release --target "${{ matrix.target }}" --bin crew --bin agents-crew
+      - name: Package Unix release
+        if: matrix.package_shell == 'bash'
+        shell: bash
+        run: ./scripts/package-release.sh "${{ matrix.target }}" "${{ steps.version.outputs.version }}" dist
+      - name: Package Windows release
+        if: matrix.package_shell == 'pwsh'
+        shell: pwsh
+        run: ./scripts/package-release.ps1 -Target "${{ matrix.target }}" -Version "${{ steps.version.outputs.version }}" -OutDir dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agents-crew-${{ matrix.id }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - name: Resolve tag
+        id: version
+        run: echo "tag=${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: agents-crew-*
+          path: dist
+          merge-multiple: true
+      - name: Generate SHA256SUMS
+        working-directory: dist
+        run: sha256sum agents-crew-* > SHA256SUMS
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --generate-notes --title "Agents Crew $TAG"
+          gh release upload "$TAG" dist/* --clobber
+
+  publish-installer:
+    needs: release
+    runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      AGENTS_CREW_GITHUB_REPOSITORY: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - name: Resolve tag
+        id: version
+        run: echo "tag=${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+      - name: Verify package version
+        run: node scripts/verify-version.mjs "${{ steps.version.outputs.tag }}"
+      - name: Publish npm installer
+        if: env.NODE_AUTH_TOKEN != ''
+        working-directory: installer
+        run: |
+          npm install --ignore-scripts --no-package-lock
+          npm publish --access public --provenance
+      - name: Explain skipped npm publish
+        if: env.NODE_AUTH_TOKEN == ''
+        run: echo "NPM_TOKEN is not configured; GitHub Release assets were published but npm publish was skipped."

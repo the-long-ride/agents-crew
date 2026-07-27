@@ -2,46 +2,47 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
-  build-lint-test:
+  structure:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [20, 22, 24]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: npm run lint
-      - run: npm test
-      - run: npm run test:coverage
-
-  publish:
-    needs: build-lint-test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: npm
-          registry-url: https://registry.npmjs.org
-      - run: npm ci
-      - run: npm run build
-      - run: npm test
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          node-version: 20
+      - name: Verify repository structure
+        run: node scripts/verify-structure.mjs
+
+  rust:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.78.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo build --workspace --all-features
+      - run: cargo test --workspace --all-features
+
+  installer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify delivery contract
+        run: node scripts/verify-delivery.mjs
+      - name: Test installer package
+        working-directory: installer
+        run: |
+          npm install --ignore-scripts --no-package-lock
+          npm test
+          npm pack --dry-run

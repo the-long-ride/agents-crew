@@ -1,0 +1,10 @@
+[package]
+name="agents-crew-prompts"
+version.workspace=true
+edition.workspace=true
+license.workspace=true
+rust-version.workspace=true
+[dependencies]
+agents-crew-core={path="../agents-crew-core"}
+[lints]
+workspace=true

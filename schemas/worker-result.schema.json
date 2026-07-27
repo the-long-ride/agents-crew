@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-crew.dev/schemas/worker-result.schema.json",
+  "title": "Agents Crew Worker Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "status",
+    "summary"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "failed",
+        "blocked"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "files_changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "commands_run": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "command",
+          "status",
+          "summary"
+        ],
+        "properties": {
+          "command": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "skipped",
+              "blocked"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "criterion_id",
+          "source",
+          "summary",
+          "passed"
+        ],
+        "properties": {
+          "criterion_id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "artifact": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommended_next_tasks": {
+      "type": "array"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "capabilities_used": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "read",
+          "write",
+          "shell",
+          "network",
+          "commit",
+          "push",
+          "deploy",
+          "destructive"
+        ]
+      },
+      "uniqueItems": true,
+      "default": []
+    }
+  }
+}

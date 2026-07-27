@@ -1,20 +1,102 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agents-crew.dev/schemas/crew-state.schema.json",
-  "title": "CrewState",
+  "title": "Agents Crew Run",
   "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "original_goal",
+    "normalized_goal",
+    "acceptance_criteria",
+    "repository",
+    "workspace_mode",
+    "manager",
+    "tasks",
+    "status",
+    "iteration",
+    "max_iterations",
+    "created_at",
+    "updated_at"
+  ],
   "properties": {
-    "schemaVersion": { "type": "integer", "const": 1 },
-    "taskId": { "type": "string" },
-    "workspaceRoot": { "type": "string" },
-    "repositoryRoot": { "type": "string" },
-    "baseCommit": { "type": "string" },
-    "diffHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-    "changedFiles": { "type": "array", "items": { "type": "string" } },
-    "reviewCycle": { "type": "integer", "minimum": 0 },
-    "updatedAt": { "type": "string", "format": "date-time" },
-    "adapterConfig": { "type": "object", "additionalProperties": true }
-  },
-  "required": ["schemaVersion", "taskId"],
-  "additionalProperties": false
+    "id": {
+      "type": "string"
+    },
+    "original_goal": {
+      "type": "string"
+    },
+    "normalized_goal": {
+      "type": "string"
+    },
+    "acceptance_criteria": {
+      "type": "array"
+    },
+    "repository": {
+      "type": "string"
+    },
+    "workspace_mode": {
+      "enum": [
+        "current",
+        "isolated"
+      ]
+    },
+    "manager": {
+      "type": "object"
+    },
+    "tasks": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "task.schema.json"
+      }
+    },
+    "approvals": {
+      "type": "array"
+    },
+    "evidence": {
+      "type": "array"
+    },
+    "verification": {
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "planning",
+        "working",
+        "paused",
+        "awaiting_approval",
+        "manager_required",
+        "completed",
+        "blocked",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "iteration": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_iterations": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "terminal_summary": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
 }

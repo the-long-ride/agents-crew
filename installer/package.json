@@ -1,0 +1,32 @@
+{
+  "name": "@agents-crew/installer",
+  "version": "0.1.0",
+  "description": "Verified installer for the Agents Crew Rust runtime and manager integrations.",
+  "type": "module",
+  "bin": {
+    "agents-crew-install": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build:metadata": "node ./scripts/write-build-metadata.mjs",
+    "build": "npm run clean && npm run build:metadata && tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "prepack": "npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
