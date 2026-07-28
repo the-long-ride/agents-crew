@@ -1,0 +1,60 @@
+name: manual-build
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Use workflow from
+        required: true
+        type: string
+        default: master
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: linux-x64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - id: macos-arm64
+            runner: macos-14
+            target: aarch64-apple-darwin
+          - id: windows-x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.branch }}
+      - name: Resolve short SHA
+        id: sha
+        shell: bash
+        run: echo "short=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@1.86.0
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build release binaries
+        run: cargo build --release --target ${{ matrix.target }} --bin crew --bin agents-crew
+      - name: Collect binaries
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            cp target/${{ matrix.target }}/release/crew.exe dist/
+            cp target/${{ matrix.target }}/release/agents-crew.exe dist/
+          else
+            cp target/${{ matrix.target }}/release/crew dist/
+            cp target/${{ matrix.target }}/release/agents-crew dist/
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agents-crew-${{ matrix.id }}-${{ steps.sha.outputs.short }}
+          path: dist/*
+          if-no-files-found: error
