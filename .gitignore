@@ -1,4 +1,7 @@
 /target/
+/crew.exe
+/agents-crew.exe
+/dist/
 .agents-crew/
 .agent-bridge/
 .agents/
@@ -17,3 +20,4 @@ npm-debug.log*
 
 .worktrees/
 docs/superpowers/
+scripts/install-local.ps1
