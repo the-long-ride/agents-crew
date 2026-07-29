@@ -6,6 +6,7 @@ import process from 'node:process';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const commands = [
+  [process.execPath, ['--test', 'crates/agents-crew-ui/web/app-model.test.mjs']],
   [process.execPath, ['scripts/verify-structure.mjs']],
   ['cargo', ['fmt', '--all', '--', '--check']],
   ['cargo', ['clippy', '--workspace', '--all-targets', '--all-features', '--', '-D', 'warnings']],

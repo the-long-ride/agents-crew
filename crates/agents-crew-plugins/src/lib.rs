@@ -85,7 +85,11 @@ pub struct PluginReport {
     pub files: Vec<FileReport>,
 }
 
-pub(crate) const COMMANDS: [(&str, &str); 11] = [
+pub(crate) const COMMANDS: [(&str, &str); 12] = [
+    (
+        "agents-crew",
+        "Start, resume, inspect, pause, or cancel a durable template run.",
+    ),
     (
         "crew-init",
         "Create Agents Crew configuration and role files.",

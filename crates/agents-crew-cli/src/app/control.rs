@@ -19,10 +19,21 @@ pub(super) fn run_response(workspace: &Path, run: &Run) -> Result<Value> {
 
 pub(super) async fn resume(workspace: &Path, requested: Option<&str>) -> Result<Value> {
     let id = latest_id(workspace, requested)?;
-    let cfg = config(workspace)?;
+    let cfg = run_config(workspace, &id)?;
     let mut run = store(workspace).load(&id)?;
+    if matches!(run.status, RunStatus::Completed | RunStatus::Cancelled) {
+        return Err(anyhow!(
+            "run {id} is terminal ({:?}) and can only be inspected",
+            run.status
+        ));
+    }
+    if run.status == RunStatus::Failed {
+        create_failed_run_recovery(workspace, &mut run)?;
+        persist_run(workspace, &run)?;
+        return run_response(workspace, &run);
+    }
     if recover_interrupted_tasks(workspace, &mut run)? {
-        store(workspace).save(&run)?;
+        persist_run(workspace, &run)?;
         return run_response(workspace, &run);
     }
     if matches!(run.status, RunStatus::Paused | RunStatus::Blocked) {
@@ -35,8 +46,46 @@ pub(super) async fn resume(workspace: &Path, requested: Option<&str>) -> Result<
     ) {
         advance_run(workspace, &cfg, &mut run).await?;
     }
-    store(workspace).save(&run)?;
+    persist_run(workspace, &run)?;
     run_response(workspace, &run)
+}
+
+fn create_failed_run_recovery(workspace: &Path, run: &mut Run) -> Result<()> {
+    let run_store = store(workspace);
+    if !run_store.pending_actions(&run.id)?.is_empty() {
+        run.status = RunStatus::ManagerRequired;
+        return Ok(());
+    }
+    let task_id = run
+        .tasks
+        .values()
+        .find(|task| matches!(task.status, TaskStatus::Failed | TaskStatus::Blocked))
+        .map_or_else(|| "run-recovery".to_string(), |task| task.id.clone());
+    let action = OutstandingAction {
+        id: Uuid::new_v4().to_string(),
+        run_id: run.id.clone(),
+        task_id: Some(task_id.clone()),
+        issued_at: Utc::now(),
+        expires_at: Some(Utc::now() + Duration::hours(24)),
+        capability_envelope: BTreeSet::new(),
+        action: ManagerAction::Review {
+            task_id: task_id.clone(),
+            state_path: run_store.run_dir(&run.id).join("run.json"),
+            output_schema: workspace.join("schemas/manager-decision.schema.json"),
+        },
+        consumed: false,
+    };
+    run_store.save_action(&action)?;
+    run_store.append_event(
+        &run.id,
+        EventKind::ManagerActionIssued,
+        json!({ "action_id": action.id, "type": "failed_run_recovery", "task_id": task_id }),
+    )?;
+    run.status = RunStatus::ManagerRequired;
+    run.terminal_summary = Some(
+        "Failed run reopened for manager recovery review using durable context".to_string(),
+    );
+    Ok(())
 }
 
 pub(super) fn recover_interrupted_tasks(workspace: &Path, run: &mut Run) -> Result<bool> {
@@ -102,7 +151,15 @@ pub(super) fn set_run_status(
     let mut run = store(workspace).load(&id)?;
     run.status = next;
     run.updated_at = Utc::now();
-    store(workspace).save(&run)?;
+    let event = match next {
+        RunStatus::Paused => Some(EventKind::RunPaused),
+        RunStatus::Cancelled => Some(EventKind::RunCancelled),
+        _ => None,
+    };
+    if let Some(kind) = event {
+        store(workspace).append_event(&id, kind, json!({ "status": label }))?;
+    }
+    persist_run(workspace, &run)?;
     Ok(json!({ "run_id": id, "status": label }))
 }
 
@@ -138,7 +195,7 @@ pub(super) fn decide_approval(
     } else {
         RunStatus::Blocked
     };
-    store(workspace).save(&run)?;
+    persist_run(workspace, &run)?;
     store(workspace).append_event(
         &id,
         EventKind::ApprovalDecided,

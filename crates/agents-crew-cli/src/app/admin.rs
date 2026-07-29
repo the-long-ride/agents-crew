@@ -115,7 +115,7 @@ pub(super) async fn worker_command(workspace: &Path, command: WorkerCommand) -> 
             let run_store = store(workspace);
             run_store.create(&run)?;
             advance_run(workspace, &cfg, &mut run).await?;
-            run_store.save(&run)?;
+            persist_run(workspace, &run)?;
             run_response(workspace, &run)
         }
     }

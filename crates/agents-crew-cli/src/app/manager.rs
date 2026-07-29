@@ -20,6 +20,26 @@ pub(super) async fn manager_command(workspace: &Path, command: ManagerCommand) -
             let id = run.id.clone();
             let run_store = store(workspace);
             run_store.create(&run)?;
+            let template_id = cfg
+                .template
+                .as_ref()
+                .map_or_else(|| "workspace-config".to_string(), |item| item.id.clone());
+            let template_name = cfg
+                .template
+                .as_ref()
+                .map_or_else(|| "Workspace config".to_string(), |item| item.name.clone());
+            RunProtocol::new(workspace).materialize(
+                &run,
+                &cfg,
+                &RunIntent {
+                    template_id,
+                    template_name,
+                    goal: goal.clone(),
+                    expectations: Vec::new(),
+                    acceptance_criteria: Vec::new(),
+                    constraints: Vec::new(),
+                },
+            )?;
             let action = OutstandingAction {
                 id: Uuid::new_v4().to_string(),
                 run_id: id.clone(),
@@ -43,11 +63,11 @@ pub(super) async fn manager_command(workspace: &Path, command: ManagerCommand) -
             Ok(json!({ "run_id": id, "actions": [action] }))
         }
         ManagerCommand::Step { run: run_id } => {
-            let cfg = config(workspace)?;
+            let cfg = run_config(workspace, &run_id)?;
             let run_store = store(workspace);
             let mut state = run_store.load(&run_id)?;
             if recover_interrupted_tasks(workspace, &mut state)? {
-                run_store.save(&state)?;
+                persist_run(workspace, &state)?;
             }
             let pending = run_store.pending_actions(&run_id)?;
             let expired = run_store.expired_actions(&run_id)?;
@@ -57,10 +77,10 @@ pub(super) async fn manager_command(workspace: &Path, command: ManagerCommand) -
                     "{} manager action(s) expired; inspect the workspace and start a fresh action or run",
                     expired.len()
                 ));
-                run_store.save(&state)?;
+                persist_run(workspace, &state)?;
             } else if pending.is_empty() && state.status == RunStatus::Working {
                 advance_run(workspace, &cfg, &mut state).await?;
-                run_store.save(&state)?;
+                persist_run(workspace, &state)?;
             }
             run_response(workspace, &state)
         }
@@ -78,7 +98,7 @@ pub(super) fn submit_manager_result(
     action_id: &str,
     result_path: &Path,
 ) -> Result<Value> {
-    let cfg = config(workspace)?;
+    let cfg = run_config(workspace, run_id)?;
     let run_store = store(workspace);
     let outstanding = run_store.load_action(run_id, action_id)?;
     match &outstanding.action {
@@ -87,7 +107,7 @@ pub(super) fn submit_manager_result(
             let mut state = run_store.load(run_id)?;
             apply_manager_decision(&mut state, decision)?;
             run_store.consume_action(run_id, action_id, &BTreeSet::new())?;
-            run_store.save(&state)?;
+            persist_run(workspace, &state)?;
             run_store.append_event(
                 run_id,
                 EventKind::ManagerActionSubmitted,
@@ -111,7 +131,7 @@ pub(super) fn submit_manager_result(
             if let Err(error) = integrate_native_workspace(workspace, &cfg, &mut state, &mut result)
             {
                 mark_task_failure(workspace, &mut state, &result.task_id, &error.to_string())?;
-                run_store.save(&state)?;
+                persist_run(workspace, &state)?;
                 return run_response(workspace, &state);
             }
             if let Some(task) = state.tasks.get_mut(&result.task_id) {
@@ -130,7 +150,7 @@ pub(super) fn submit_manager_result(
                     mark_task_failure(workspace, &mut state, &result.task_id, &error.to_string())?;
                 }
             }
-            run_store.save(&state)?;
+            persist_run(workspace, &state)?;
             run_response(workspace, &state)
         }
         ManagerAction::RequestApproval { .. }

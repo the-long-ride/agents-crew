@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Agents Crew</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="signal"></span> AGENTS CREW</div>
+    <nav aria-label="Primary">
+      <button class="nav-pill active" data-view="builder">Builder</button>
+      <button class="nav-pill" data-view="templates">Templates</button>
+      <button class="nav-pill" data-view="runtime">Runtime</button>
+    </nav>
+    <div class="top-actions">
+      <select id="save-scope" aria-label="Save scope"><option value="global">Global</option><option value="workspace">Workspace</option></select>
+      <button id="save-template" class="primary-pill">Save template</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="builder-view" class="view builder-grid">
+      <aside class="panel template-panel">
+        <p class="eyebrow">TEMPLATE LIBRARY</p>
+        <input id="template-search" class="input" placeholder="Search templates">
+        <button id="new-template" class="outline-pill full">+ New template</button>
+        <div id="template-list" class="list"></div>
+      </aside>
+
+      <section class="canvas-panel">
+        <div class="canvas-toolbar">
+          <div><p class="eyebrow">CREW CANVAS</p><h1 id="canvas-title">Default crew</h1></div>
+          <button id="add-worker" class="outline-pill">+ Worker</button>
+        </div>
+        <div id="crew-canvas" class="canvas" aria-label="Crew Canvas"></div>
+      </section>
+
+      <aside class="panel inspector-panel">
+        <p class="eyebrow">INSPECTOR</p>
+        <div id="inspector-empty" class="empty">Select a host or worker node.</div>
+        <form id="inspector" hidden>
+          <label>Alias<input id="field-alias" class="input"></label>
+          <label>Adapter / host<input id="field-adapter" class="input"></label>
+          <label>Model ID<input id="field-model" class="input" list="model-presets"></label>
+          <datalist id="model-presets"></datalist>
+          <fieldset><legend>Roles</legend><div id="role-options" class="check-grid"></div></fieldset>
+          <fieldset><legend>Capabilities</legend><div id="capability-options" class="check-grid"></div></fieldset>
+          <label class="toggle"><input id="field-network" type="checkbox"> Requires network</label>
+          <label class="toggle"><input id="field-credentials" type="checkbox"> Requires credentials</label>
+          <button id="delete-node" type="button" class="danger-pill">Delete worker</button>
+        </form>
+      </aside>
+    </section>
+
+    <section id="templates-view" class="view page" hidden>
+      <p class="eyebrow">REUSABLE CREWS</p>
+      <h2>Templates</h2>
+      <p class="lead">Workspace templates override matching global IDs. Built-in templates remain read-only.</p>
+      <div id="template-cards" class="card-grid"></div>
+    </section>
+
+    <section id="runtime-view" class="view page" hidden>
+      <p class="eyebrow">DURABLE EXECUTION</p>
+      <h2>Runtime</h2>
+      <div class="runtime-layout">
+        <div id="run-list" class="run-list"></div>
+        <article id="run-detail" class="detail-card"><div class="empty">Select a run to inspect durable context.</div></article>
+      </div>
+    </section>
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

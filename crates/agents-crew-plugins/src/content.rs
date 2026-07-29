@@ -57,6 +57,17 @@ pub(super) fn command_content(host: Host, name: &str, description: &str) -> Stri
         Host::Codex => String::new(),
     };
     let body = match name {
+        "agents-crew" => format!(
+            "Interpret `$ARGUMENTS` as an Agents Crew subcommand. Supported forms:
+
+- `start <template-id> <prompt>`: extract a concise goal, expectations, acceptance criteria, and constraints from the user's prompt. Run `agents-crew start <template-id> --goal <goal>` with repeated `--expectation`, `--acceptance`, and `--constraint` flags as needed, always using safe argument boundaries and `--json`. Read the returned run ID, `.agents-crew/active/<run-id>/goal-<run-id>.md`, `status.md`, and pending actions. Continue only through Rust-issued manager actions.
+- `resume <run-id>`: run `agents-crew resume <run-id> --json`, reload durable context, and continue pending manager actions.
+- `status [run-id]`, `pause [run-id]`, or `cancel [run-id]`: invoke the matching `agents-crew` command with the positional run ID and `--json`.
+
+For manager actions, use `agents-crew manager step --run <run-id> --json` and `agents-crew manager submit --run <run-id> --action <action-id> --result <file> --json`. Never invent action IDs, bypass policy, expose credentials, or claim completion before the core returns `completed`. Host: {}.
+",
+            host.name()
+        ),
         "crew-run" => format!(
             "Start with `crew manager start --goal \"$ARGUMENTS\" --host {} --json`. Follow only returned actions. For `plan` or `review`, write the requested schema to a temporary JSON file and submit it via `crew manager submit`. For `dispatch_native`, invoke the generated `agents-crew-<role>` subagent (or inject `.agents-crew/roles/<role>.md`) with exactly the capability envelope and workspace, then submit normalized WorkerResult JSON via `crew manager submit`. Repeatedly run `crew manager step --run <run-id> --json` until completed, approval is needed, or blocked. Never invent action IDs or bypass the Rust policy engine.\n",
             host.name()
@@ -87,7 +98,7 @@ pub(super) fn manager_content(host: Host) -> String {
         Host::Codex | Host::Antigravity => "",
     };
     format!(
-        "{front_matter}# Agents Crew Manager\n\nYou are the only installed manager. The Rust core is the authority for scheduling, policy, retries, workspaces, action IDs, and completion. Plan, delegate, review, and implement only as permitted by `.agents-crew/config.toml`. Workers may be native subagents, Codex, Claude Code, OpenCode, Antigravity, or configured APIs. Execute only actions returned by `crew manager step`. Native results must match `schemas/worker-result.schema.json`. Do not claim completion until the core returns `completed`. Host: {}.\n",
+        "{front_matter}# Agents Crew Manager\n\nYou are the only installed manager. The Rust core is the authority for scheduling, policy, retries, workspaces, durable run files, action IDs, and completion. Plan, delegate, review, and implement only as permitted by `.agents-crew/config.toml`. Workers may be native subagents, Codex, Claude Code, OpenCode, Antigravity, or configured APIs. Before each cycle read the active run goal and status projections. Execute only actions returned by `agents-crew manager step`. Native results must match `schemas/worker-result.schema.json`. Do not claim completion until the core returns `completed`. Host: {}.\n",
         host.name()
     )
 }

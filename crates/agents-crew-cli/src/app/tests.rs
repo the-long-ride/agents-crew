@@ -107,3 +107,55 @@ fn safe_local_edit_creates_approval_boundary() {
         Some(Execution::Approval(_))
     ));
 }
+
+#[test]
+fn failed_run_recovery_issues_durable_manager_review() {
+    let directory = tempdir().unwrap();
+    let mut run = test_run(directory.path(), ManagerCoding::Full);
+    let mut task = test_task("failed", Role::Implementer, true);
+    task.status = TaskStatus::Failed;
+    run.tasks.insert(task.id.clone(), task);
+    run.status = RunStatus::Failed;
+    let run_store = store(directory.path());
+    run_store.create(&run).unwrap();
+
+    create_failed_run_recovery(directory.path(), &mut run).unwrap();
+
+    assert_eq!(run.status, RunStatus::ManagerRequired);
+    let actions = run_store.pending_actions(&run.id).unwrap();
+    assert_eq!(actions.len(), 1);
+    assert!(matches!(actions[0].action, ManagerAction::Review { .. }));
+}
+
+#[test]
+fn repeated_terminal_persistence_does_not_restore_generated_context() {
+    let directory = tempdir().unwrap();
+    let mut run = test_run(directory.path(), ManagerCoding::Full);
+    let cfg = CrewConfig::starter();
+    let run_store = store(directory.path());
+    run_store.create(&run).unwrap();
+    RunProtocol::new(directory.path())
+        .materialize(
+            &run,
+            &cfg,
+            &RunIntent {
+                template_id: "default".to_string(),
+                template_name: "Default crew".to_string(),
+                goal: run.goal.clone(),
+                expectations: Vec::new(),
+                acceptance_criteria: Vec::new(),
+                constraints: Vec::new(),
+            },
+        )
+        .unwrap();
+    run.status = RunStatus::Completed;
+
+    persist_run(directory.path(), &run).unwrap();
+    persist_run(directory.path(), &run).unwrap();
+
+    let history = run_store.history_run_dir(&run.id);
+    assert!(history.join("summary.json").exists());
+    assert!(!history.join("context").exists());
+    assert!(!history.join("tasks").exists());
+    assert!(!history.join("communication").exists());
+}

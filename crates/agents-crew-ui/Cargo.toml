@@ -1,0 +1,24 @@
+[package]
+name = "agents-crew-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+agents-crew-config = { path = "../agents-crew-config" }
+agents-crew-core = { path = "../agents-crew-core" }
+chrono.workspace = true
+agents-crew-protocol = { path = "../agents-crew-protocol" }
+agents-crew-state = { path = "../agents-crew-state" }
+agents-crew-templates = { path = "../agents-crew-templates" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile = "=3.10.1"
+
+[lints]
+workspace = true

@@ -12,3 +12,16 @@ Native dispatch actions include role, model, fallback rule, workspace, context p
 
 
 Manager actions expire after 24 hours. Expired unconsumed actions remain visible in `status` under `expired_actions`; the run becomes `blocked` so the operator can inspect possible partial workspace changes before starting fresh work.
+
+
+## Durable template entry point
+
+The unified generated command accepts `start`, `resume`, `status`, `pause`, and `cancel` as its first argument. Before each manager cycle, read `.agents-crew/active/<run-id>/goal-<run-id>.md` and `status.md`. The Rust-issued action remains authoritative; Markdown files are durable projections, not permission to invent actions.
+
+A template start uses:
+
+```bash
+agents-crew start <template-id> --goal "..." --expectation "..." --acceptance "..." --json
+```
+
+A resumed run loads `crew.snapshot.toml` from the run directory. Completed or cancelled history is inspect-only. Failed runs reopen as a manager recovery review; interrupted running tasks become blocked and receive explicit review actions.

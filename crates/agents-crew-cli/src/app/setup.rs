@@ -2,7 +2,9 @@ use super::*;
 
 pub(super) fn init(workspace: &Path, args: InitArgs) -> Result<Value> {
     fs::create_dir_all(workspace.join(".agents-crew/roles"))?;
-    fs::create_dir_all(workspace.join(".agents-crew/runs"))?;
+    fs::create_dir_all(workspace.join(".agents-crew/active"))?;
+    fs::create_dir_all(workspace.join(".agents-crew/history"))?;
+    fs::create_dir_all(workspace.join(".agents-crew/templates"))?;
     let path = config_path(workspace);
     if !path.exists() || args.force {
         CrewConfig::starter().save(&path)?;
@@ -129,8 +131,32 @@ pub(super) async fn run_goal(workspace: &Path, goal: &str) -> Result<Value> {
     let mut run = build_default_run(workspace, goal, &cfg);
     let run_store = store(workspace);
     run_store.create(&run)?;
+    let template_id = cfg
+        .template
+        .as_ref()
+        .map_or_else(|| "workspace-config".to_string(), |item| item.id.clone());
+    let template_name = cfg
+        .template
+        .as_ref()
+        .map_or_else(|| "Workspace config".to_string(), |item| item.name.clone());
+    RunProtocol::new(workspace).materialize(
+        &run,
+        &cfg,
+        &RunIntent {
+            template_id,
+            template_name,
+            goal: goal.to_string(),
+            expectations: Vec::new(),
+            acceptance_criteria: run
+                .acceptance_criteria
+                .iter()
+                .map(|criterion| criterion.description.clone())
+                .collect(),
+            constraints: Vec::new(),
+        },
+    )?;
     run_store.append_event(&run.id, EventKind::RunStarted, json!({ "goal": goal }))?;
     advance_run(workspace, &cfg, &mut run).await?;
-    run_store.save(&run)?;
+    persist_run(workspace, &run)?;
     run_response(workspace, &run)
 }

@@ -82,6 +82,45 @@ crew run "Add request throttling to the API and verify it under load."
 
 Only the chosen manager gets generated plugin files. Codex, Claude Code, OpenCode, and Antigravity workers only need their normal CLI installation, or an API worker configuration. `agents-crew` remains an exact compatibility alias for scripts created before the `crew` command was introduced.
 
+
+## Template Studio
+
+Manual worker TOML is still supported, but reusable crews can now be designed and tracked visually:
+
+```bash
+agents-crew ui
+```
+
+The command starts an embedded web app on `127.0.0.1` using a random available port. Pass `--port <port>` to select one or `--no-open` to avoid opening the browser. The UI has Builder, Templates, Runtime, and Run detail views. It stores reusable templates globally under `~/.agents-crew/templates/` and optional repository overrides under `.agents-crew/templates/`. A workspace template with the same ID takes precedence over the global template.
+
+Start a durable run from the installed manager host:
+
+```text
+/agents-crew start fullstack-review {goal: implement the feature; expectation: preserve compatibility; acceptance: all tests pass}
+```
+
+Terminal fallback:
+
+```bash
+agents-crew start fullstack-review   --goal "Implement the feature"   --expectation "Preserve compatibility"   --acceptance "All tests pass"
+```
+
+Resume after restarting the host or computer:
+
+```text
+/agents-crew resume <run-id>
+```
+
+Active context lives under `.agents-crew/active/<run-id>/`. It includes the immutable crew snapshot, original goal, status projection, task context, agent/session tracking, events, evidence, blockers, and communication files. Completed and cancelled runs are compacted into `.agents-crew/history/<run-id>/`; generated communication/task context, run-owned worktrees, and temporary branches are removed while source changes and history remain.
+
+Template CLI helpers:
+
+```bash
+agents-crew template list
+agents-crew template show <template-id>
+agents-crew template validate <template-id>
+```
+
 ## What `/crew-run` does
 
 A run has one durable ID and a terminal outcome: `completed`, `blocked`, `failed`, or `cancelled`.
@@ -104,6 +143,11 @@ The plugin generator creates the same semantic commands for all four manager hos
 
 | Command | Purpose |
 |---|---|
+| `/agents-crew start <template-id> <prompt>` | Start a durable run from a reusable crew template. |
+| `/agents-crew resume <run-id>` | Resume from the saved crew snapshot and durable context. |
+| `/agents-crew status [run-id]` | Inspect current work, blockers, files, sessions, and history. |
+| `/agents-crew pause [run-id]` | Pause scheduling without deleting context. |
+| `/agents-crew cancel [run-id]` | Cancel and compact the run into history. |
 | `/crew-init` | Create configuration and built-in role prompts. |
 | `/crew-run <goal>` | Execute the complete managed loop. |
 | `/crew-plan <goal>` | Create a plan without implementation writes. |
@@ -120,7 +164,7 @@ Host formats evolve independently. Generated files are isolated by host and trac
 
 ## Configuration
 
-`crew init` creates `.agents-crew/config.toml`, built-in role files, and durable run directories.
+`crew init` creates `.agents-crew/config.toml`, built-in role files, template overrides, active-run storage, and history storage.
 
 ```toml
 version = 1

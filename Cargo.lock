@@ -41,7 +41,10 @@ dependencies = [
  "agents-crew-plugins",
  "agents-crew-policy",
  "agents-crew-prompts",
+ "agents-crew-protocol",
  "agents-crew-state",
+ "agents-crew-templates",
+ "agents-crew-ui",
  "agents-crew-workers",
  "anyhow",
  "chrono",
@@ -135,6 +138,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "agents-crew-protocol"
+version = "0.1.0"
+dependencies = [
+ "agents-crew-config",
+ "agents-crew-core",
+ "agents-crew-state",
+ "chrono",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "agents-crew-state"
 version = "0.1.0"
 dependencies = [
@@ -145,6 +163,34 @@ dependencies = [
  "tempfile",
  "thiserror",
  "uuid",
+]
+
+[[package]]
+name = "agents-crew-templates"
+version = "0.1.0"
+dependencies = [
+ "agents-crew-config",
+ "serde",
+ "tempfile",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
+name = "agents-crew-ui"
+version = "0.1.0"
+dependencies = [
+ "agents-crew-config",
+ "agents-crew-core",
+ "agents-crew-protocol",
+ "agents-crew-state",
+ "agents-crew-templates",
+ "chrono",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]

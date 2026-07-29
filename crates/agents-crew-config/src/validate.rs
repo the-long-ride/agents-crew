@@ -20,6 +20,14 @@ pub fn validate(config: &CrewConfig) -> Result<(), ConfigError> {
         return Err(ConfigError::Invalid("version must be 1".into()));
     }
 
+    if let Some(template) = &config.template {
+        if template.id.trim().is_empty() || template.name.trim().is_empty() {
+            return Err(ConfigError::Invalid(
+                "template id and name must not be empty".into(),
+            ));
+        }
+    }
+
     let run = &config.run;
     if run.max_iterations == 0
         || run.max_parallel_readers == 0

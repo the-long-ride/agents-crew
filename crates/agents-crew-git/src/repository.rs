@@ -213,6 +213,28 @@ impl GitRepository {
         }
         Ok(())
     }
+
+    pub fn cleanup_run_worktrees(&self, run_id: &str) -> Result<(), GitError> {
+        let root = self
+            .root
+            .join(".agents-crew/worktrees")
+            .join(sanitize_ref(run_id));
+        if !root.exists() {
+            return Ok(());
+        }
+        let worktrees = fs::read_dir(&root)?
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|path| path.is_dir())
+            .collect::<Vec<_>>();
+        for worktree in worktrees {
+            self.cleanup_task_worktree(&worktree)?;
+        }
+        if root.exists() {
+            fs::remove_dir_all(root)?;
+        }
+        Ok(())
+    }
 }
 
 fn run(cwd: &Path, args: &[&str]) -> Result<String, GitError> {

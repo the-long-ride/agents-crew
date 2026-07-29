@@ -53,7 +53,7 @@ pub(super) async fn advance_run(workspace: &Path, cfg: &CrewConfig, run: &mut Ru
         mark_running(run, &batch.read_task_ids);
         mark_running(run, &batch.write_task_ids);
         let run_store = store(workspace);
-        run_store.save(run)?;
+        persist_run(workspace, run)?;
         for task_id in batch
             .read_task_ids
             .iter()
@@ -103,7 +103,7 @@ pub(super) async fn advance_run(workspace: &Path, cfg: &CrewConfig, run: &mut Ru
                 | RunStatus::Failed
                 | RunStatus::Blocked
         ) {
-            store(workspace).save(run)?;
+            persist_run(workspace, run)?;
             break;
         }
 
@@ -150,7 +150,7 @@ pub(super) async fn advance_run(workspace: &Path, cfg: &CrewConfig, run: &mut Ru
                 handle_execution(workspace, cfg, run, execution)?;
             }
         }
-        store(workspace).save(run)?;
+        persist_run(workspace, run)?;
     }
     Ok(())
 }

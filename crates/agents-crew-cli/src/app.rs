@@ -13,6 +13,8 @@ use agents_crew_git::{
     canonical_scoped_path, GitRepository, RepositorySnapshot, RepositoryWriteLock,
 };
 use agents_crew_plugins::{Host, HostPlugin};
+use agents_crew_protocol::{RunIntent, RunProtocol};
+use agents_crew_templates::{TemplateRegistry, TemplateScope};
 use agents_crew_policy::{Operation, PolicyContext, PolicyDecision, PolicyEngine};
 use agents_crew_prompts::role;
 use agents_crew_state::{EventKind, OutstandingAction, RunStore};
@@ -43,6 +45,8 @@ mod policy;
 mod routing;
 mod setup;
 mod task;
+mod template;
+mod ui;
 mod verification;
 
 use admin::*;
@@ -56,6 +60,8 @@ use policy::*;
 use routing::*;
 use setup::*;
 use task::*;
+use template::*;
+use ui::*;
 use verification::*;
 
 #[cfg(test)]
@@ -65,19 +71,21 @@ pub async fn run(cli: Cli) -> Result<Value> {
     let workspace = cli.workspace.canonicalize().unwrap_or(cli.workspace);
     match cli.command {
         Command::Init(args) => init(&workspace, args),
+        Command::Ui(args) => ui_command(&workspace, args).await,
+        Command::Start(args) => start_template(&workspace, args).await,
         Command::Plan(args) => plan(&workspace, &args.goal.join(" ")),
         Command::Run(args) => run_goal(&workspace, &args.goal.join(" ")).await,
-        Command::Status(selector) => status(&workspace, selector.run.as_deref()),
-        Command::Resume(selector) => resume(&workspace, selector.run.as_deref()).await,
+        Command::Status(selector) => status(&workspace, selector.selected()),
+        Command::Resume(selector) => resume(&workspace, selector.selected()).await,
         Command::Pause(selector) => set_run_status(
             &workspace,
-            selector.run.as_deref(),
+            selector.selected(),
             RunStatus::Paused,
             "paused",
         ),
         Command::Cancel(selector) => set_run_status(
             &workspace,
-            selector.run.as_deref(),
+            selector.selected(),
             RunStatus::Cancelled,
             "cancelled",
         ),
@@ -88,6 +96,7 @@ pub async fn run(cli: Cli) -> Result<Value> {
             decide_approval(&workspace, args.run.as_deref(), &args.approval_id, false)
         }
         Command::Doctor => doctor(&workspace).await,
+        Command::Template { command } => template_command(&workspace, command),
         Command::Config { command } => config_command(&workspace, command),
         Command::Plugin { command } => plugin_command(&workspace, command),
         Command::Worker { command } => worker_command(&workspace, command).await,

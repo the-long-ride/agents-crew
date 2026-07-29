@@ -54,9 +54,9 @@ for (const binaryPath of [
   assert.doesNotMatch(binary, /#\[path\s*=|mod\s+(?:app|args|output)\s*;/, `${binaryPath} must not duplicate source modules`);
 }
 
-const stateStore = read('crates/agents-crew-state/src/store.rs');
+const stateStore = readTree('crates/agents-crew-state/src', '.rs');
 assert.doesNotMatch(stateStore, /\.map_or\(true,/, 'state-store optional checks must remain Clippy-clean');
-assert.ok((stateStore.match(/\.is_none_or\(/g) ?? []).length >= 2, 'state store must use Option::is_none_or for both optional checks');
+assert.ok((stateStore.match(/\.is_none_or\(/g) ?? []).length >= 2, 'state store must use Option::is_none_or for optional checks');
 
 const app = readTree('crates/agents-crew-cli/src', '.rs');
 assert.match(app, /"crew plugin install <host>"/);
@@ -64,10 +64,16 @@ assert.match(app, /"crew doctor"/);
 
 const plugin = readTree('crates/agents-crew-plugins/src', '.rs');
 assert.match(plugin, /`crew manager start/, 'generated commands must use crew');
-assert.doesNotMatch(plugin, /`agents-crew (?:manager|run|plan|init|doctor|status|resume|pause|approve|reject|cancel|config)/, 'generated commands must not require compatibility name');
+assert.match(plugin, /start <template-id>/, 'generated commands must expose durable template start');
+assert.match(plugin, /goal-<run-id>\.md/, 'generated commands must load durable goal context');
 
 for (const path of [
   'crates/agents-crew-cli/src/lib.rs',
+  'crates/agents-crew-ui/web/app-model.test.mjs',
+  'crates/agents-crew-templates/src/lib.rs',
+  'crates/agents-crew-protocol/src/lib.rs',
+  'crates/agents-crew-ui/src/lib.rs',
+  '.agents/designs/DESIGN-x.ai.md',
   'crates/agents-crew-cli/src/bin/agents-crew.rs',
   'installer/package.json',
   'installer/tsconfig.json',
@@ -160,6 +166,8 @@ assert.match(windowsPackage, /agents-crew\.exe/);
 const readme = read('README.md');
 assert.match(readme, /npx @agents-crew\/installer install/);
 assert.match(readme, /crew run/);
+assert.match(readme, /agents-crew ui/);
+assert.match(readme, /agents-crew start/);
 
 for (const markdownPath of ['README.md', 'GUIDELINE.md', 'docs/installation.md', 'docs/releasing.md']) {
   const content = read(markdownPath);

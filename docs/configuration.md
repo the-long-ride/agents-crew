@@ -33,3 +33,45 @@ requires_credentials = false
 ```
 
 The flags describe transport prerequisites, not task permissions. A task still needs explicit `network`, `commit`, `push`, `deploy`, or `destructive` capabilities when it performs those operations.
+
+
+## Reusable templates
+
+A template is a normal version-1 crew configuration with optional metadata and display aliases:
+
+```toml
+version = 1
+
+[template]
+id = "fullstack-review"
+name = "Full-stack review crew"
+description = "Planner, implementer, tester, and reviewer"
+
+[manager]
+host = "codex"
+alias = "Lead"
+model = "configured-by-host"
+coding = "small_fixes"
+small_fix_max_files = 3
+small_fix_max_changed_lines = 120
+
+[[workers]]
+id = "opencode-implementer"
+alias = "Builder"
+kind = "cli"
+adapter = "opencode"
+model = "configured-by-user"
+roles = ["implementer", "tester"]
+capabilities = ["read", "write", "shell"]
+priority = 80
+```
+
+Global templates are stored in `~/.agents-crew/templates/<id>.toml`. Workspace overrides are stored in `.agents-crew/templates/<id>.toml` and win when IDs match. IDs must be lowercase ASCII slugs containing letters, numbers, and internal hyphens only.
+
+Use `agents-crew ui` to create and edit templates, or inspect them with `agents-crew template list|show|validate`.
+
+## Durable run files
+
+`agents-crew start <template-id>` snapshots the resolved template into `.agents-crew/active/<run-id>/crew.snapshot.toml`. Resume always prefers this snapshot, so later edits to global or workspace templates do not change an in-progress run.
+
+The active directory also contains `goal-<run-id>.md`, `status.md`, `intent.json`, `events.jsonl`, task projections, agent session records, evidence, blockers, and manager communication files. Completed and cancelled runs move to `.agents-crew/history/<run-id>/` after generated task and communication context, run-owned worktrees, and temporary branches are removed. Failed and blocked runs remain active for recovery.

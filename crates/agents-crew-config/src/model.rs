@@ -5,6 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrewConfig {
     pub version: u32,
+    #[serde(default)]
+    pub template: Option<TemplateMetadata>,
     pub run: RunConfig,
     pub manager: ManagerConfig,
     pub autonomy: AutonomyConfig,
@@ -13,6 +15,22 @@ pub struct CrewConfig {
     pub verification: VerificationConfig,
     #[serde(default)]
     pub workers: Vec<WorkerConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TemplateMetadata {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub layout: BTreeMap<String, CanvasPosition>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CanvasPosition {
+    pub x: i32,
+    pub y: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +48,10 @@ pub struct RunConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManagerConfig {
     pub host: String,
+    #[serde(default)]
+    pub alias: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
     pub coding: ManagerCoding,
     pub small_fix_max_files: usize,
     pub small_fix_max_changed_lines: usize,
@@ -90,6 +112,8 @@ pub enum WorkerKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerConfig {
     pub id: String,
+    #[serde(default)]
+    pub alias: Option<String>,
     pub kind: WorkerKind,
     #[serde(default = "yes")]
     pub enabled: bool,
@@ -133,6 +157,7 @@ const fn yes() -> bool {
 pub fn starter() -> CrewConfig {
     CrewConfig {
         version: 1,
+        template: None,
         run: RunConfig {
             workspace_mode: WorkspaceMode::Current,
             max_iterations: 8,
@@ -144,6 +169,8 @@ pub fn starter() -> CrewConfig {
         },
         manager: ManagerConfig {
             host: "claude-code".into(),
+            alias: Some("Manager".into()),
+            model: None,
             coding: ManagerCoding::SmallFixes,
             small_fix_max_files: 3,
             small_fix_max_changed_lines: 120,
@@ -169,6 +196,7 @@ pub fn starter() -> CrewConfig {
         },
         workers: vec![WorkerConfig {
             id: "manager-native".into(),
+            alias: Some("Native worker".into()),
             kind: WorkerKind::Native,
             enabled: true,
             adapter: None,

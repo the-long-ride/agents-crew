@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeSet, HashSet},
     fs::{self, OpenOptions},
     io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
@@ -19,6 +19,8 @@ pub enum StateError {
     Json(#[from] serde_json::Error),
     #[error("run not found: {0}")]
     RunNotFound(String),
+    #[error("run already archived: {0}")]
+    AlreadyArchived(String),
     #[error("unknown action: {0}")]
     UnknownAction(String),
     #[error("action already consumed: {0}")]
@@ -43,36 +45,80 @@ pub struct OutstandingAction {
 
 #[derive(Debug, Clone)]
 pub struct RunStore {
-    root: PathBuf,
+    active_root: PathBuf,
+    history_root: PathBuf,
+    legacy_root: PathBuf,
 }
 
 impl RunStore {
     #[must_use]
     pub fn new(workspace: &Path) -> Self {
+        let base = workspace.join(".agents-crew");
         Self {
-            root: workspace.join(".agents-crew/runs"),
+            active_root: base.join("active"),
+            history_root: base.join("history"),
+            legacy_root: base.join("runs"),
         }
     }
 
     #[must_use]
     pub fn root(&self) -> &Path {
-        &self.root
+        &self.active_root
+    }
+
+    #[must_use]
+    pub fn active_root(&self) -> &Path {
+        &self.active_root
+    }
+
+    #[must_use]
+    pub fn history_root(&self) -> &Path {
+        &self.history_root
+    }
+
+    #[must_use]
+    pub fn active_run_dir(&self, id: &str) -> PathBuf {
+        self.active_root.join(id)
+    }
+
+    #[must_use]
+    pub fn history_run_dir(&self, id: &str) -> PathBuf {
+        self.history_root.join(id)
     }
 
     #[must_use]
     pub fn run_dir(&self, id: &str) -> PathBuf {
-        self.root.join(id)
+        let active = self.active_run_dir(id);
+        if active.exists() {
+            return active;
+        }
+        let history = self.history_run_dir(id);
+        if history.exists() {
+            return history;
+        }
+        let legacy = self.legacy_root.join(id);
+        if legacy.exists() {
+            return legacy;
+        }
+        active
     }
 
     pub fn create(&self, run: &Run) -> Result<(), StateError> {
-        fs::create_dir_all(self.run_dir(&run.id).join("actions"))?;
-        fs::create_dir_all(self.run_dir(&run.id).join("artifacts"))?;
-        fs::create_dir_all(self.run_dir(&run.id).join("context"))?;
+        let run_dir = self.active_run_dir(&run.id);
+        fs::create_dir_all(run_dir.join("actions"))?;
+        fs::create_dir_all(run_dir.join("artifacts"))?;
+        fs::create_dir_all(run_dir.join("context"))?;
         self.save(run)
     }
 
     pub fn save(&self, run: &Run) -> Result<(), StateError> {
-        atomic_json(&self.run_dir(&run.id).join("run.json"), run)
+        let history = self.history_run_dir(&run.id);
+        let directory = if history.exists() {
+            history
+        } else {
+            self.active_run_dir(&run.id)
+        };
+        atomic_json(&directory.join("run.json"), run)
     }
 
     pub fn load(&self, id: &str) -> Result<Run, StateError> {
@@ -83,15 +129,38 @@ impl RunStore {
         Ok(serde_json::from_slice(&fs::read(path)?)?)
     }
 
-    pub fn list_runs(&self) -> Result<Vec<String>, StateError> {
-        if !self.root.exists() {
-            return Ok(Vec::new());
+    pub fn archive(&self, id: &str) -> Result<PathBuf, StateError> {
+        let active = self.active_run_dir(id);
+        let history = self.history_run_dir(id);
+        if history.exists() {
+            return Err(StateError::AlreadyArchived(id.to_string()));
         }
-        let mut runs = fs::read_dir(&self.root)?
-            .filter_map(Result::ok)
-            .filter(|entry| entry.path().is_dir())
-            .filter_map(|entry| entry.file_name().into_string().ok())
-            .collect::<Vec<_>>();
+        if !active.exists() {
+            return Err(StateError::RunNotFound(id.to_string()));
+        }
+        fs::create_dir_all(&self.history_root)?;
+        fs::rename(active, &history)?;
+        Ok(history)
+    }
+
+    pub fn list_runs(&self) -> Result<Vec<String>, StateError> {
+        let mut seen = HashSet::new();
+        let mut runs = Vec::new();
+        for root in [&self.active_root, &self.history_root, &self.legacy_root] {
+            if !root.exists() {
+                continue;
+            }
+            for entry in fs::read_dir(root)?.filter_map(Result::ok) {
+                if !entry.path().is_dir() {
+                    continue;
+                }
+                if let Ok(id) = entry.file_name().into_string() {
+                    if seen.insert(id.clone()) {
+                        runs.push(id);
+                    }
+                }
+            }
+        }
         runs.sort();
         Ok(runs)
     }
@@ -99,7 +168,11 @@ impl RunStore {
     pub fn latest_run_id(&self) -> Result<Option<String>, StateError> {
         let mut newest: Option<(std::time::SystemTime, String)> = None;
         for id in self.list_runs()? {
-            let modified = fs::metadata(self.run_dir(&id).join("run.json"))?.modified()?;
+            let path = self.run_dir(&id).join("run.json");
+            if !path.exists() {
+                continue;
+            }
+            let modified = fs::metadata(path)?.modified()?;
             if newest
                 .as_ref()
                 .is_none_or(|(existing, _)| modified > *existing)
@@ -152,89 +225,9 @@ impl RunStore {
         Ok(events)
     }
 
-    pub fn save_action(&self, action: &OutstandingAction) -> Result<(), StateError> {
-        atomic_json(
-            &self
-                .run_dir(&action.run_id)
-                .join("actions")
-                .join(format!("{}.json", action.id)),
-            action,
-        )
-    }
-
-    pub fn load_action(&self, run_id: &str, id: &str) -> Result<OutstandingAction, StateError> {
-        let path = self
-            .run_dir(run_id)
-            .join("actions")
-            .join(format!("{id}.json"));
-        if !path.exists() {
-            return Err(StateError::UnknownAction(id.to_string()));
-        }
-        Ok(serde_json::from_slice(&fs::read(path)?)?)
-    }
-
-    pub fn consume_action(
-        &self,
-        run_id: &str,
-        id: &str,
-        claimed: &BTreeSet<Capability>,
-    ) -> Result<OutstandingAction, StateError> {
-        let mut action = self.load_action(run_id, id)?;
-        if action.consumed {
-            return Err(StateError::ActionConsumed(id.to_string()));
-        }
-        if action
-            .expires_at
-            .is_some_and(|expires| expires <= Utc::now())
-        {
-            return Err(StateError::ActionExpired(id.to_string()));
-        }
-        if !claimed.is_subset(&action.capability_envelope) {
-            return Err(StateError::CapabilityMismatch);
-        }
-        action.consumed = true;
-        self.save_action(&action)?;
-        Ok(action)
-    }
-
-    pub fn expired_actions(&self, run_id: &str) -> Result<Vec<OutstandingAction>, StateError> {
-        let directory = self.run_dir(run_id).join("actions");
-        if !directory.exists() {
-            return Ok(Vec::new());
-        }
-        let mut actions = Vec::new();
-        for entry in fs::read_dir(directory)?.filter_map(Result::ok) {
-            let action: OutstandingAction = serde_json::from_slice(&fs::read(entry.path())?)?;
-            if !action.consumed
-                && action
-                    .expires_at
-                    .is_some_and(|expires| expires <= Utc::now())
-            {
-                actions.push(action);
-            }
-        }
-        actions.sort_by_key(|action| action.issued_at);
-        Ok(actions)
-    }
-
-    pub fn pending_actions(&self, run_id: &str) -> Result<Vec<OutstandingAction>, StateError> {
-        let directory = self.run_dir(run_id).join("actions");
-        if !directory.exists() {
-            return Ok(Vec::new());
-        }
-        let mut actions = Vec::new();
-        for entry in fs::read_dir(directory)?.filter_map(Result::ok) {
-            let action: OutstandingAction = serde_json::from_slice(&fs::read(entry.path())?)?;
-            if !action.consumed && action.expires_at.is_none_or(|expires| expires > Utc::now()) {
-                actions.push(action);
-            }
-        }
-        actions.sort_by_key(|action| action.issued_at);
-        Ok(actions)
-    }
 }
 
-fn atomic_json<T: Serialize>(path: &Path, value: &T) -> Result<(), StateError> {
+pub(crate) fn atomic_json<T: Serialize>(path: &Path, value: &T) -> Result<(), StateError> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -258,35 +251,4 @@ fn atomic_json<T: Serialize>(path: &Path, value: &T) -> Result<(), StateError> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use agents_crew_core::{ManagerCoding, ManagerIdentity, WorkspaceMode};
-    use tempfile::tempdir;
-
-    #[test]
-    fn events_are_monotonic() {
-        let directory = tempdir().unwrap();
-        let store = RunStore::new(directory.path());
-        let run = Run::new(
-            "x",
-            directory.path().into(),
-            WorkspaceMode::Current,
-            ManagerIdentity {
-                host: "x".to_string(),
-                coding: ManagerCoding::Never,
-                small_fix_max_files: 0,
-                small_fix_max_changed_lines: 0,
-            },
-            2,
-        );
-        let id = run.id.clone();
-        store.create(&run).unwrap();
-        store
-            .append_event(&id, EventKind::RunStarted, Value::Null)
-            .unwrap();
-        store
-            .append_event(&id, EventKind::TaskAdded, Value::Null)
-            .unwrap();
-        assert_eq!(store.read_events(&id).unwrap()[1].sequence, 2);
-    }
-}
+mod tests;

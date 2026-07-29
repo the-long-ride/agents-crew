@@ -21,8 +21,11 @@ agents-crew-core={path="../agents-crew-core"}
 agents-crew-git={path="../agents-crew-git"}
 agents-crew-plugins={path="../agents-crew-plugins"}
 agents-crew-policy={path="../agents-crew-policy"}
+agents-crew-protocol={path="../agents-crew-protocol"}
 agents-crew-prompts={path="../agents-crew-prompts"}
 agents-crew-state={path="../agents-crew-state"}
+agents-crew-templates={path="../agents-crew-templates"}
+agents-crew-ui={path="../agents-crew-ui"}
 agents-crew-workers={path="../agents-crew-workers"}
 anyhow.workspace=true
 chrono.workspace=true
