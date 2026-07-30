@@ -9,20 +9,21 @@ const fixture = {
   openai: {
     name: 'OpenAI',
     models: {
-      'gpt-5-codex': { name: 'GPT-5 Codex', reasoning: true, tool_call: true, attachment: true, limit: { context: 400000 } },
-      'old-codex': { name: 'Old Codex', status: 'deprecated', reasoning: false, tool_call: true, attachment: false, limit: { context: 8192 } },
+      'gpt-5-codex': { name: 'GPT-5 Codex', reasoning: true, tool_call: true, attachment: true, limit: { context: 400000 }, modalities: { input: ['text', 'image'], output: ['text'] } },
+      'text-embedding-3-large': { name: 'Text Embedding 3 Large', reasoning: false, tool_call: false, attachment: false, limit: { context: 8191 }, modalities: { input: ['text'], output: ['embedding'] } },
+      'old-codex': { name: 'Old Codex', status: 'deprecated', reasoning: false, tool_call: true, attachment: false, limit: { context: 8192 }, modalities: { input: ['text'], output: ['text'] } },
     },
   },
   anthropic: {
     name: 'Anthropic',
     models: {
-      'claude-opus-4-6': { name: 'Claude Opus 4.6', reasoning: true, tool_call: true, attachment: true, limit: { context: 1000000 } },
+      'claude-opus-4-6': { name: 'Claude Opus 4.6', reasoning: true, tool_call: true, attachment: true, limit: { context: 1000000 }, modalities: { input: ['text', 'image'], output: ['text'] } },
     },
   },
   google: {
     name: 'Google',
     models: {
-      'gemini-3-pro': { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro', reasoning: true, tool_call: true, attachment: true, limit: { context: 1000000 } },
+      'gemini-3-pro': { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro', reasoning: true, tool_call: true, attachment: true, limit: { context: 1000000 }, modalities: { input: ['text', 'image'], output: ['text'] } },
     },
   },
 };
@@ -31,6 +32,7 @@ test('host mappings select public catalog providers without credentials', () => 
   assert.deepEqual(modelProvidersForHost('codex'), ['openai']);
   assert.deepEqual(modelProvidersForHost('claude-code'), ['anthropic']);
   assert.deepEqual(modelProvidersForHost('antigravity'), ['google', 'anthropic']);
+  assert.deepEqual(modelProvidersForHost('opencode'), ['*']);
   assert.deepEqual(modelProvidersForHost('custom-cli'), []);
 });
 
@@ -42,6 +44,14 @@ test('Models.dev normalization filters deprecated entries and preserves useful m
     reasoning: true, tool_call: true, attachment: true,
   });
   assert.equal(providers.google[0].id, 'gemini-3-pro-preview');
+  assert.equal(providers.openai.some((model) => model.id === 'text-embedding-3-large'), false);
+});
+
+test('OpenCode receives text LLMs from every live provider', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'agents-crew-model-opencode-'));
+  const result = await new ModelCatalog(root, async () => fixture, () => 1000).list('opencode', true);
+  assert.deepEqual(result.providers, ['anthropic', 'google', 'openai']);
+  assert.deepEqual(result.models.map((model) => model.provider), ['anthropic', 'google', 'openai']);
 });
 
 test('catalog caches live data, reuses fresh cache, and serves stale cache on refresh failure', async () => {

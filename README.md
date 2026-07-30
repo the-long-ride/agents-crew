@@ -24,7 +24,9 @@ crew --version
 From this repository:
 
 ```bash
-npm run build
+corepack enable
+pnpm install --frozen-lockfile
+pnpm run build
 npm link
 crew --version
 ```
@@ -231,36 +233,38 @@ The UI binds only to `127.0.0.1`, serves bundled local assets, and requires a ra
 - **Runtime** — inspect and control active durable runs.
 - **History** — inspect completed, cancelled, failed, and otherwise archived runs without active-run controls.
 
-Host/model fields use a searchable custom combobox. Codex, Claude Code, and Antigravity can load suggestions from the unauthenticated Models.dev catalog; results are cached for six hours in `.agents-crew/cache/models-dev.json`, stale cache remains usable when offline, and manual model IDs are always accepted. Catalog results are suggestions rather than account-specific entitlement checks.
+Host/model fields use a searchable custom combobox with centered SVG controls. Model choices are loaded for the selected adapter from the Models.dev catalog and limited to active models with text input and text output. OpenCode can use catalog models from every provider; Codex, Claude Code, and Antigravity receive their supported provider sets. Fresh cache remains usable for six hours, while stale or unavailable catalogs expose no selectable model IDs.
 
 The header provides explicit dark and light modes. Every section has contextual help, and all buttons and text fields use square corners. Template saves are scoped to global or workspace storage. Request bodies are capped at 1 MiB. The UI has no CDN, remote fonts, analytics, frontend framework, or external browser dependency.
 
 ## Development
 
-The normal local loop is exactly:
+The repository uses pnpm 10 for development, while `npm link`, global installation, packing, and publishing remain supported:
 
 ```bash
-npm run build
+corepack enable
+pnpm install --frozen-lockfile
+pnpm run build
 npm link
 ```
 
 Full verification:
 
 ```bash
-npm run check
+pnpm run check
 ```
 
 Useful scripts:
 
 ```bash
-npm run typecheck
-npm run lint
-npm run test:unit
-npm run coverage
-npm run pack:check
+pnpm run typecheck
+pnpm run lint
+pnpm run test:unit
+pnpm run coverage
+pnpm run pack:check
 ```
 
-The build uses Node’s built-in TypeScript transform. The project intentionally has no `dependencies` or `devDependencies`. Runtime source is grouped by responsibility under `src/cli`, `src/config`, `src/domain`, `src/orchestration`, `src/runtime`, `src/templates`, `src/plugins`, `src/shared`, and `src/ui`; browser modules live under `ui/src`. Coverage thresholds apply to every shipped runtime module under `dist/`, not a selected subset.
+The build uses Node’s built-in TypeScript transform. The project intentionally has no `dependencies` or `devDependencies`. Runtime source is grouped by responsibility under `src/cli`, `src/config`, `src/domain`, `src/orchestration`, `src/runtime`, `src/templates`, `src/plugins`, `src/shared`, and `src/ui`; browser modules live under `ui/src`. Coverage thresholds apply to the shipped Node.js runtime under `dist/`. Browser modules run in the same test suite through focused model, markup, API, theme, viewport, and server tests; they are excluded from Node’s line-coverage denominator because the project has no browser coverage dependency.
 
 ## Release
 

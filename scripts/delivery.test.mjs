@@ -26,9 +26,15 @@ test('built UI contains Builder, Templates, Runtime, and History modules', async
   assert.match(html, />History</u);
   assert.match(html, /id="fit-graph"/u);
   assert.match(html, /id="reset-zoom"/u);
+  assert.match(html, /id="template-name"/u);
+  assert.match(html, /id="template-id"/u);
+  assert.match(html, /data-sidebar-resizer="left"/u);
+  assert.match(html, /data-sidebar-resizer="right"/u);
+  assert.match(html, /id="delete-template"/u);
+  assert.ok(html.indexOf('id="save-template"') < html.indexOf('id="add-worker"'), 'save must be left of add worker');
   assert.match(html, /data-theme="light"/u);
   assert.match(html, /data-theme="dark"/u);
-  assert.doesNotMatch(html, /<select|<datalist/iu);
+  assert.match(html, /<select id="template-group"/iu);
   for (const asset of ['app.js', 'builder.js', 'templates.js', 'runtime.js', 'model.js', 'api.js', 'theme.js', 'components/combobox.js', 'components/info.js', 'graph/viewport.js']) {
     const source = await readFile(new URL(`../dist/ui/assets/${asset}`, import.meta.url), 'utf8');
     assert.ok(source.length > 0, `empty UI asset ${asset}`);
@@ -47,6 +53,17 @@ test('typecheck fails instead of silently succeeding when no checker is availabl
   });
   assert.notEqual(result.status, 0);
   assert.match(`${result.stdout}${result.stderr}`, /TypeScript compiler|tsc|npx/i);
+});
+
+test('repository uses pnpm for development while preserving npm installation', async () => {
+  const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const ci = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(packageJson.packageManager, /^pnpm@10\./u);
+  assert.match(ci, /pnpm install --frozen-lockfile/u);
+  assert.match(ci, /pnpm run check/u);
+  assert.match(readme, /npm install --global @agents-crew\/cli/u);
+  assert.match(readme, /pnpm run build/u);
 });
 
 test('release publishes the exact verified npm artifact', async () => {

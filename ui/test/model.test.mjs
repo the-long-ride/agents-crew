@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { modelIsAvailable, modelOptionsForCatalog, modelValueForAdapter } from '../../dist/ui/assets/builder.js';
 import {
   addWorker,
   edgeLayout,
@@ -43,8 +44,8 @@ test('normalization supplies manager and worker defaults without mutating source
   value.config.workers.push({ id: 'worker-1', kind: 'cli' });
   const normalized = normalizeTemplate(value);
   assert.equal(normalized.config.manager.alias, 'Manager');
-  assert.equal(normalized.config.manager.model, 'configured-by-host');
-  assert.equal(normalized.config.workers[0].model, 'configured-by-user');
+  assert.equal(normalized.config.manager.model, '');
+  assert.equal(normalized.config.workers[0].model, '');
   assert.deepEqual(normalized.config.workers[0].capabilities, ['read']);
   assert.equal(value.config.manager.alias, undefined);
 });
@@ -53,6 +54,7 @@ test('worker nodes and edges receive deterministic positions', () => {
   let value = normalizeTemplate(template());
   value = addWorker(value);
   value = addWorker(value);
+  assert.equal(value.config.workers[0].model, '');
   const nodes = nodeLayout(value);
   assert.equal(nodes[0].type, 'manager');
   assert.equal(nodes[1].x, 430);
@@ -83,4 +85,23 @@ test('save payload carries selected scope and cloned config', () => {
   assert.equal(payload.config.template.id, 'crew');
   payload.config.template.name = 'Changed';
   assert.equal(value.config.template.name, 'Crew');
+});
+
+
+test('catalog model values follow adapter conventions and reject stale data', () => {
+  const catalog = {
+    host: 'opencode', providers: ['anthropic', 'openai'], source: 'live', stale: false,
+    models: [
+      { id: 'claude-sonnet', name: 'Claude Sonnet', provider: 'anthropic', reasoning: true, tool_call: true, attachment: false },
+      { id: 'gpt-codex', name: 'GPT Codex', provider: 'openai', reasoning: true, tool_call: true, attachment: false },
+    ],
+  };
+  assert.equal(modelValueForAdapter('opencode', catalog.models[0]), 'anthropic/claude-sonnet');
+  assert.equal(modelValueForAdapter('claude-code', catalog.models[0]), 'claude-sonnet');
+  assert.deepEqual(modelOptionsForCatalog(catalog).map((option) => option.value), ['anthropic/claude-sonnet', 'openai/gpt-codex']);
+  assert.deepEqual(modelOptionsForCatalog({ ...catalog, source: 'stale', stale: true }), []);
+  assert.equal(modelIsAvailable('opencode', 'anthropic/claude-sonnet', catalog), true);
+  assert.equal(modelIsAvailable('opencode', 'claude-sonnet', catalog), false);
+  assert.equal(modelIsAvailable('opencode', '', catalog), true);
+  assert.equal(modelIsAvailable('opencode', 'anthropic/claude-sonnet', { ...catalog, source: 'stale', stale: true }), false);
 });

@@ -5,7 +5,9 @@
 Run:
 
 ```bash
-npm run build
+corepack enable
+pnpm install --frozen-lockfile
+pnpm run build
 npm link
 npm prefix --global
 ```

@@ -27,7 +27,7 @@ export interface ModelCatalogResponse {
 }
 
 type ProviderModels = Record<string, ModelSuggestion[]>;
-interface CacheDocument { fetched_at: number; providers: ProviderModels }
+interface CacheDocument { schema_version: 2; fetched_at: number; providers: ProviderModels }
 type CatalogFetcher = () => Promise<unknown>;
 
 function object(value: unknown): Record<string, unknown> | undefined {
@@ -35,6 +35,15 @@ function object(value: unknown): Record<string, unknown> | undefined {
 }
 
 function optionalBoolean(value: unknown): boolean { return value === true; }
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+function isTextLlm(model: Record<string, unknown>): boolean {
+  const modalities = object(model.modalities);
+  const input = stringArray(modalities?.input);
+  const output = stringArray(modalities?.output);
+  return input.includes('text') && output.includes('text');
+}
 function optionalPositiveInteger(value: unknown): number | undefined {
   return Number.isInteger(value) && Number(value) > 0 ? Number(value) : undefined;
 }
@@ -45,6 +54,7 @@ export function modelProvidersForHost(host: string): string[] {
   if (normalized === 'claude-code' || normalized === 'claude' || normalized === 'anthropic') return ['anthropic'];
   if (normalized === 'google') return ['google'];
   if (normalized === 'antigravity') return ['google', 'anthropic'];
+  if (normalized === 'opencode') return ['*'];
   return [];
 }
 
@@ -67,7 +77,7 @@ export function normalizeModelsDev(value: unknown): ProviderModels {
     const models: ModelSuggestion[] = [];
     for (const [mapId, rawModel] of Object.entries(rawModels)) {
       const model = object(rawModel);
-      if (!model || model.status === 'deprecated') continue;
+      if (!model || model.status === 'deprecated' || !isTextLlm(model)) continue;
       const id = typeof model.id === 'string' && model.id.trim() ? model.id.trim() : mapId;
       const name = typeof model.name === 'string' && model.name.trim() ? model.name.trim() : id;
       const limit = object(model.limit);
@@ -91,7 +101,7 @@ export function normalizeModelsDev(value: unknown): ProviderModels {
 
 function validCache(value: unknown): CacheDocument | undefined {
   const document = object(value);
-  if (!document || !Number.isFinite(document.fetched_at)) return undefined;
+  if (!document || document.schema_version !== 2 || !Number.isFinite(document.fetched_at)) return undefined;
   const rawProviders = object(document.providers);
   if (!rawProviders) return undefined;
   const providers: ProviderModels = {};
@@ -113,7 +123,7 @@ function validCache(value: unknown): CacheDocument | undefined {
     }
     providers[provider] = models;
   }
-  return { fetched_at: Number(document.fetched_at), providers };
+  return { schema_version: 2, fetched_at: Number(document.fetched_at), providers };
 }
 
 async function defaultFetcher(): Promise<unknown> {
@@ -150,10 +160,11 @@ export class ModelCatalog {
   }
 
   private response(host: string, providers: string[], cache: CacheDocument, source: ModelCatalogResponse['source'], error?: string): ModelCatalogResponse {
-    const models = providers.flatMap((provider) => cache.providers[provider] ?? []);
+    const resolvedProviders = providers.includes('*') ? Object.keys(cache.providers).sort() : providers;
+    const models = resolvedProviders.flatMap((provider) => cache.providers[provider] ?? []);
     const result: ModelCatalogResponse = {
       host,
-      providers,
+      providers: resolvedProviders,
       models,
       source,
       stale: source === 'stale',
@@ -171,7 +182,7 @@ export class ModelCatalog {
       return this.response(host, providers, cached, 'cache');
     }
     try {
-      const live: CacheDocument = { fetched_at: this.now(), providers: normalizeModelsDev(await this.fetcher()) };
+      const live: CacheDocument = { schema_version: 2, fetched_at: this.now(), providers: normalizeModelsDev(await this.fetcher()) };
       await this.saveCache(live);
       return this.response(host, providers, live, 'live');
     } catch (error) {

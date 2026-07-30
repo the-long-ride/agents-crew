@@ -27,13 +27,13 @@
     "clean": "node ./scripts/clean.mjs",
     "build": "node --disable-warning=ExperimentalWarning ./scripts/build.mjs",
     "typecheck": "node ./scripts/typecheck.mjs",
-    "lint": "npm run build && node ./scripts/lint.mjs && node ./scripts/check-file-lengths.mjs && node ./scripts/verify-delivery.mjs",
-    "test:unit": "npm run build && node --test test/*.test.mjs ui/test/*.test.mjs scripts/*.test.mjs",
-    "test": "npm run lint && npm run test:unit",
-    "coverage": "npm run build && node --disable-warning=ExperimentalWarning --experimental-test-coverage --test-coverage-include=\"dist/**/*.js\" --test-coverage-lines=85 --test-coverage-functions=85 --test-coverage-branches=80 --test test/*.test.mjs ui/test/*.test.mjs scripts/*.test.mjs",
-    "pack:check": "npm run build && npm pack --dry-run --ignore-scripts",
-    "check": "npm run typecheck && npm run lint && npm run test:unit && npm run coverage && npm run pack:check",
-    "prepack": "npm run build"
+    "lint": "node --disable-warning=ExperimentalWarning ./scripts/build.mjs && node ./scripts/lint.mjs && node ./scripts/check-file-lengths.mjs && node ./scripts/verify-delivery.mjs",
+    "test:unit": "node --disable-warning=ExperimentalWarning ./scripts/build.mjs && node --test test/*.test.mjs ui/test/*.test.mjs scripts/*.test.mjs",
+    "test": "node --disable-warning=ExperimentalWarning ./scripts/build.mjs && node ./scripts/lint.mjs && node ./scripts/check-file-lengths.mjs && node ./scripts/verify-delivery.mjs && node --test test/*.test.mjs ui/test/*.test.mjs scripts/*.test.mjs",
+    "coverage": "node --disable-warning=ExperimentalWarning ./scripts/build.mjs && node --disable-warning=ExperimentalWarning --experimental-test-coverage --test-coverage-include=\"dist/**/*.js\" --test-coverage-exclude=\"dist/ui/assets/**/*.js\" --test-coverage-lines=85 --test-coverage-functions=85 --test-coverage-branches=80 --test test/*.test.mjs ui/test/*.test.mjs scripts/*.test.mjs",
+    "pack:check": "node --disable-warning=ExperimentalWarning ./scripts/build.mjs && npm pack --dry-run --ignore-scripts",
+    "check": "node ./scripts/typecheck.mjs && node --disable-warning=ExperimentalWarning ./scripts/build.mjs && node ./scripts/lint.mjs && node ./scripts/check-file-lengths.mjs && node ./scripts/verify-delivery.mjs && node --test test/*.test.mjs ui/test/*.test.mjs scripts/*.test.mjs && node --disable-warning=ExperimentalWarning --experimental-test-coverage --test-coverage-include=\"dist/**/*.js\" --test-coverage-exclude=\"dist/ui/assets/**/*.js\" --test-coverage-lines=85 --test-coverage-functions=85 --test-coverage-branches=80 --test test/*.test.mjs ui/test/*.test.mjs scripts/*.test.mjs && npm pack --dry-run --ignore-scripts",
+    "prepack": "node --disable-warning=ExperimentalWarning ./scripts/build.mjs"
   },
   "engines": {
     "node": ">=22.13.0"
@@ -53,5 +53,6 @@
     "antigravity",
     "typescript",
     "cli"
-  ]
+  ],
+  "packageManager": "pnpm@10.34.0"
 }

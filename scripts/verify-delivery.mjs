@@ -12,6 +12,7 @@ const packageJson = JSON.parse(read('package.json'));
 assert.equal(packageJson.name, '@agents-crew/cli');
 assert.equal(packageJson.type, 'module');
 assert.equal(packageJson.engines.node, '>=22.13.0');
+assert.match(packageJson.packageManager, /^pnpm@10\./u);
 assert.equal(packageJson.bin.crew, './dist/cli/entry.js');
 assert.equal(packageJson.bin['agents-crew'], './dist/cli/entry.js');
 assert.deepEqual(packageJson.dependencies ?? {}, {}, 'runtime dependencies are not allowed');
@@ -19,7 +20,7 @@ assert.deepEqual(packageJson.devDependencies ?? {}, {}, 'development dependencie
 assert.ok(packageJson.files.includes('ui/src'), 'npm package must include browser TypeScript source');
 assert.ok(packageJson.files.includes('ui/static'), 'npm package must include browser static source');
 for (const script of ['build', 'typecheck', 'lint', 'test:unit', 'coverage', 'pack:check', 'check']) assert.ok(packageJson.scripts[script], `missing npm script ${script}`);
-for (const path of ['src/cli/entry.ts', 'src/orchestration/engine.ts', 'src/orchestration/manager.ts', 'src/ui/server.ts', 'ui/static/index.html', 'roles/manager.md', 'schemas/worker-result.schema.json', '.github/workflows/ci.yml', '.github/workflows/release.yml']) requireFile(path);
+for (const path of ['pnpm-lock.yaml', 'src/cli/entry.ts', 'src/orchestration/engine.ts', 'src/orchestration/manager.ts', 'src/ui/server.ts', 'ui/static/index.html', 'roles/manager.md', 'schemas/worker-result.schema.json', '.github/workflows/ci.yml', '.github/workflows/release.yml']) requireFile(path);
 
 const forbidden = [];
 function walk(directory) {
@@ -39,11 +40,15 @@ const release = read('.github/workflows/release.yml');
 const manual = read('.github/workflows/manual-build.yml');
 for (const [name, workflow] of [['ci', ci], ['release', release], ['manual-build', manual]]) {
   assert.match(workflow, /setup-node@v6/u, `${name} must configure Node`);
+  assert.match(workflow, /pnpm\/action-setup@v6/u, `${name} must configure pnpm`);
   assert.doesNotMatch(workflow, /cargo|rustup|rust-toolchain/iu, `${name} must not use Rust`);
 }
 assert.match(release, /actions\/download-artifact@v4/u);
 assert.match(release, /npm publish "\$PACKAGE" --access public --provenance/u);
 assert.match(release, /npm pack/u);
 assert.match(release, /id-token: write/u);
-assert.match(read('README.md'), /npm run build\s*\n(?:```[\s\S]*?)?npm link/u);
-console.log('TypeScript/npm delivery contract verified.');
+assert.match(ci, /pnpm install --frozen-lockfile/u);
+assert.match(ci, /pnpm run check/u);
+assert.match(read('README.md'), /pnpm run build\s*\n(?:```[\s\S]*?)?npm link/u);
+assert.match(read('README.md'), /npm install --global @agents-crew\/cli/u);
+console.log('TypeScript/pnpm development and npm delivery contract verified.');

@@ -2,6 +2,11 @@ import type { CanvasEdge, CanvasNode, SaveTemplateRequest, TemplateRecord, Worke
 
 export function clone<T>(value: T): T { return structuredClone(value); }
 
+function normalizedModel(value: string | undefined): string {
+  const model = value?.trim() ?? '';
+  return model === 'configured-by-host' || model === 'configured-by-user' ? '' : model;
+}
+
 export function normalizeTemplate(record: TemplateRecord): TemplateRecord {
   const result = clone(record);
   result.config.template ??= {
@@ -10,9 +15,14 @@ export function normalizeTemplate(record: TemplateRecord): TemplateRecord {
     description: result.description || '',
     layout: {},
   };
+  if (result.config.template.group || result.group) {
+    const groupVal = result.config.template.group || result.group;
+    result.group = groupVal;
+    result.config.template.group = groupVal;
+  }
   result.config.template.layout ??= {};
   result.config.manager.alias ??= 'Manager';
-  result.config.manager.model ??= 'configured-by-host';
+  result.config.manager.model = normalizedModel(result.config.manager.model);
   result.config.workers ??= [];
   result.config.workers = result.config.workers.map((worker, index) => ({
     ...worker,
@@ -26,7 +36,7 @@ export function normalizeTemplate(record: TemplateRecord): TemplateRecord {
     requires_network: worker.requires_network ?? false,
     requires_credentials: worker.requires_credentials ?? false,
     alias: worker.alias || `Worker ${index + 1}`,
-    model: worker.model || 'configured-by-user',
+    model: normalizedModel(worker.model),
     model_fallback: worker.model_fallback ?? 'allow_host_default',
   }));
   return result;
@@ -69,7 +79,7 @@ export function addWorker(record: TemplateRecord): TemplateRecord {
     kind: 'cli',
     enabled: true,
     adapter: 'opencode',
-    model: 'configured-by-user',
+    model: '',
     model_fallback: 'allow_host_default',
     roles: ['implementer'],
     capabilities: ['read', 'write', 'shell'],

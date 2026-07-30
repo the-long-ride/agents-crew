@@ -5,7 +5,7 @@ export type NodeKind = 'manager' | 'worker';
 
 export interface Position { x: number; y: number }
 export interface GraphViewport { x: number; y: number; scale: number }
-export interface TemplateMetadata { id: string; name: string; description: string; layout: Record<string, Position> }
+export interface TemplateMetadata { id: string; name: string; description: string; group?: string; layout: Record<string, Position> }
 export interface ManagerConfig {
   host: string;
   alias?: string;
@@ -51,6 +51,7 @@ export interface TemplateRecord {
   id: string;
   name: string;
   description: string;
+  group?: string;
   scope: TemplateScope;
   path?: string;
   config: CrewConfig;
@@ -140,4 +141,6 @@ export interface AppState {
   view: ViewName;
   search: string;
   saveScope: WritableTemplateScope;
+  groups: string[];
+  collapsedGroups: string[];
 }

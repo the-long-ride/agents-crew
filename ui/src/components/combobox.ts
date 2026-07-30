@@ -38,10 +38,13 @@ export function comboboxOpeningQuery(options: ComboboxOption[], value: string, d
   return exact ? '' : value;
 }
 
-function optionMarkup(option: ComboboxOption, index: number): string {
-  return `<button type="button" class="combo-option" role="option" data-combo-index="${index}" aria-selected="false">
-    <span><strong>${escapeHtml(option.label)}</strong><code>${escapeHtml(option.value)}</code></span>
-    ${option.description ? `<small>${escapeHtml(option.description)}</small>` : ''}
+const chevronSvg = '<svg class="combo-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5"></path></svg>';
+const checkSvg = '<svg class="combo-check" viewBox="0 0 20 20" aria-hidden="true"><path d="m4.5 10.5 3.2 3.2 7.8-8"></path></svg>';
+
+function optionMarkup(option: ComboboxOption, index: number, selected = false): string {
+  return `<button type="button" class="combo-option" role="option" data-combo-index="${index}" aria-selected="${selected}">
+    <span class="combo-option-copy"><span><strong>${escapeHtml(option.label)}</strong><code>${escapeHtml(option.value)}</code></span>${option.description ? `<small>${escapeHtml(option.description)}</small>` : ''}</span>
+    <span class="combo-option-icon">${checkSvg}</span>
   </button>`;
 }
 
@@ -51,9 +54,9 @@ export function comboboxMarkup(config: ComboboxConfig): string {
   return `<div class="combobox" data-combobox="${escapeHtml(config.id)}">
     <div class="combo-control">
       <input id="${escapeHtml(config.id)}" class="combo-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${escapeHtml(listId)}" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(config.placeholder ?? '')}" value="${escapeHtml(config.value)}">
-      <button type="button" class="combo-toggle" tabindex="-1" aria-label="Open options" aria-controls="${escapeHtml(listId)}">⌄</button>
+      <button type="button" class="combo-toggle" tabindex="-1" aria-label="Open options" aria-controls="${escapeHtml(listId)}">${chevronSvg}</button>
     </div>
-    <div id="${escapeHtml(listId)}" class="combo-list" role="listbox" hidden>${options.map(optionMarkup).join('')}</div>
+    <div id="${escapeHtml(listId)}" class="combo-list" role="listbox" hidden>${options.map((option, index) => optionMarkup(option, index, option.value === config.value || (config.displayLabel === true && option.label === config.value))).join('')}</div>
   </div>`;
 }
 
@@ -81,12 +84,12 @@ export function mountCombobox(container: HTMLElement, config: ComboboxConfig): C
     const filtered = filterOptions(options, config.searchable === false ? '' : query);
     if (!filtered.length) activeIndex = -1;
     else if (activeIndex >= filtered.length) activeIndex = filtered.length - 1;
+    const selected = selectedOption(input.value);
     list.innerHTML = filtered.length
-      ? filtered.map(optionMarkup).join('')
+      ? filtered.map((option, index) => optionMarkup(option, index, option.value === selected?.value)).join('')
       : `<div class="combo-empty">${escapeHtml(emptyText)}</div>`;
     for (const [index, button] of [...list.querySelectorAll<HTMLButtonElement>('[data-combo-index]')].entries()) {
       button.classList.toggle('active', index === activeIndex);
-      button.setAttribute('aria-selected', String(index === activeIndex));
       button.addEventListener('pointerdown', (event) => event.preventDefault());
       button.addEventListener('click', () => choose(filtered[index]));
     }

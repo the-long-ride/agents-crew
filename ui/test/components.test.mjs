@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { comboboxMarkup, comboboxOpeningQuery, filterOptions } from '../../dist/ui/assets/components/combobox.js';
 import { infoButtonMarkup } from '../../dist/ui/assets/components/info.js';
+import { resizeSidebarWidth } from '../../dist/ui/assets/components/sidebar-resizer.js';
+import { templateTableMarkup } from '../../dist/ui/assets/templates.js';
 import { applyTheme, mountThemeToggle, resolveInitialTheme } from '../../dist/ui/assets/theme.js';
 
 const options = [
@@ -15,12 +17,40 @@ test('custom combobox filters label, value, and description', () => {
   assert.equal(filterOptions(options, '').length, 2);
 });
 
+test('combobox marks the current option with the SVG selection icon', () => {
+  const html = comboboxMarkup({ id: 'model-id', value: 'gpt-5-codex', options });
+  assert.match(html, /data-combo-index="0" aria-selected="true"/u);
+  assert.match(html, /data-combo-index="1" aria-selected="false"/u);
+});
+
 test('combobox markup is accessible and contains no native select or datalist', () => {
   const html = comboboxMarkup({ id: 'model-id', value: '', options, placeholder: 'Choose model', allowCustom: true });
   assert.match(html, /role="combobox"/u);
   assert.match(html, /role="listbox"/u);
   assert.match(html, /aria-autocomplete="list"/u);
   assert.doesNotMatch(html, /<select|<datalist/iu);
+  assert.match(html, /<svg[^>]*class="combo-chevron"/u);
+  assert.match(html, /<svg[^>]*class="combo-check"/u);
+  assert.doesNotMatch(html, />⌄</u);
+});
+
+
+
+test('sidebar widths clamp between practical minimum and 500px', () => {
+  assert.equal(resizeSidebarWidth(250, 80, 'left'), 330);
+  assert.equal(resizeSidebarWidth(490, 80, 'left'), 500);
+  assert.equal(resizeSidebarWidth(330, 80, 'right'), 250);
+  assert.equal(resizeSidebarWidth(220, 80, 'right'), 200);
+});
+
+test('template table exposes delete only for writable templates', () => {
+  const records = [
+    { id: 'default', name: 'Default', description: '', scope: 'builtin', config: { workers: [] } },
+    { id: 'team', name: 'Team', description: '', scope: 'workspace', path: '/tmp/team.toml', config: { workers: [] } },
+  ];
+  const html = templateTableMarkup(records);
+  assert.match(html, /data-delete="workspace:team"/u);
+  assert.doesNotMatch(html, /data-delete="builtin:default"/u);
 });
 
 test('info button markup carries accessible section help', () => {
@@ -112,5 +142,68 @@ test('theme toggle restores the saved theme and binds explicit light and dark co
     else globalThis.localStorage = priorLocalStorage;
     if (priorWindow === undefined) delete globalThis.window;
     else globalThis.window = priorWindow;
+  }
+});
+
+test('confirmDialog resolves true on confirm and false on cancel', async () => {
+  const { confirmDialog } = await import('../../dist/ui/assets/components/dialog.js');
+  const listeners = new Map();
+  const fakeElement = () => ({
+    className: '',
+    innerHTML: '',
+    classList: { add() {} },
+    setAttribute() {},
+    append() {},
+    querySelector(selector) {
+      if (selector === '.dialog-cancel') return { addEventListener: (type, fn) => listeners.set(`cancel:${type}`, fn) };
+      if (selector === '.dialog-confirm') return { addEventListener: (type, fn) => listeners.set(`confirm:${type}`, fn), focus() {} };
+      return null;
+    },
+    remove() {},
+    addEventListener(type, fn) { listeners.set(`backdrop:${type}`, fn); }
+  });
+
+  const priorDocument = globalThis.document;
+  globalThis.document = {
+    createElement: () => fakeElement(),
+    body: { append() {} },
+    addEventListener: (type, fn) => listeners.set(`doc:${type}`, fn),
+    removeEventListener: () => {}
+  };
+
+  try {
+    const promise = confirmDialog({ title: 'Delete template', message: 'Are you sure?', variant: 'danger' });
+    listeners.get('confirm:click')();
+    const result = await promise;
+    assert.equal(result, true);
+  } finally {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+  }
+});
+
+test('confirmDialog confirms on Enter key', async () => {
+  const { confirmDialog } = await import('../../dist/ui/assets/components/dialog.js');
+  const listeners = new Map();
+  const fakeElement = () => ({
+    className: '', innerHTML: '', classList: { add() {} }, setAttribute() {}, append() {},
+    querySelector(selector) {
+      if (selector === '.dialog-cancel') return { addEventListener: (type, fn) => listeners.set(`cancel:${type}`, fn) };
+      if (selector === '.dialog-confirm') return { addEventListener: (type, fn) => listeners.set(`confirm:${type}`, fn), focus() {} };
+      return null;
+    }, remove() {}, addEventListener(type, fn) { listeners.set(`backdrop:${type}`, fn); },
+  });
+  const priorDocument = globalThis.document;
+  globalThis.document = {
+    createElement: () => fakeElement(), body: { append() {} },
+    addEventListener: (type, fn) => listeners.set(`doc:${type}`, fn), removeEventListener: () => {},
+  };
+  try {
+    const promise = confirmDialog({ title: 'Delete template', message: 'Are you sure?' });
+    listeners.get('doc:keydown')({ key: 'Enter', preventDefault() {} });
+    assert.equal(await promise, true);
+  } finally {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
   }
 });

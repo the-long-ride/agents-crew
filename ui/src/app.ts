@@ -1,7 +1,9 @@
 import { requestJson } from './api.js';
-import { mountBuilder } from './builder.js';
+import { modelIsAvailable, mountBuilder } from './builder.js';
 import { mountCombobox } from './components/combobox.js';
+import { confirmDialog, promptDialog } from './components/dialog.js';
 import { mountInfoPopovers } from './components/info.js';
+import { mountSidebarResizers } from './components/sidebar-resizer.js';
 import { byId } from './dom.js';
 import { resetViewport } from './graph/viewport.js';
 import { addWorker, normalizeTemplate, removeWorker, savePayload } from './model.js';
@@ -16,6 +18,7 @@ import type {
   RunSummary,
   TemplateRecord,
   ViewName,
+  WorkerConfig,
 } from './types.js';
 
 const state: AppState = {
@@ -36,7 +39,24 @@ const state: AppState = {
   view: 'builder',
   search: '',
   saveScope: 'global',
+  groups: [],
+  collapsedGroups: [],
 };
+
+const GROUPS_STORAGE_KEY = 'agents-crew-template-groups';
+
+function readStoredGroups(): string[] {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(GROUPS_STORAGE_KEY) ?? '[]');
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : [];
+  } catch { return []; }
+}
+
+function storeGroups(): void {
+  try { window.localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(state.groups)); } catch { /* storage unavailable */ }
+}
+
+state.groups = readStoredGroups();
 
 let toastTimer: number | undefined;
 function toast(message: string): void {
@@ -76,6 +96,36 @@ function newTemplate(): void {
   setView('builder');
 }
 
+async function newGroup(): Promise<void> {
+  const groupName = await promptDialog({
+    title: 'New Group',
+    message: 'Enter group name for organizing templates:',
+    placeholder: 'e.g. Workflows, Development, Testing',
+  });
+  if (!groupName) return;
+  if (!state.groups.includes(groupName)) {
+    state.groups.push(groupName);
+    storeGroups();
+  }
+  toast(`Group "${groupName}" created`);
+  render();
+}
+
+function deleteGroup(groupName: string): void {
+  const count = state.templates.filter((t) => (t.config.template?.group || t.group) === groupName).length
+    + (state.current && !state.templates.some((t) => t.id === state.current?.id && t.scope === state.current?.scope)
+      && (state.current.config.template?.group || state.current.group) === groupName ? 1 : 0);
+  if (count > 0) {
+    toast(`Cannot delete group "${groupName}" because it contains ${count} template(s)`);
+    return;
+  }
+  state.groups = (state.groups || []).filter((g) => g !== groupName);
+  storeGroups();
+  state.collapsedGroups = (state.collapsedGroups || []).filter((g) => g !== groupName);
+  toast(`Group "${groupName}" deleted`);
+  render();
+}
+
 function addWorkerToCurrent(): void {
   if (!state.current) return;
   state.current = addWorker(state.current);
@@ -89,30 +139,106 @@ function deleteSelected(): void {
   render();
 }
 
+
+function workerAdapter(worker: WorkerConfig): string {
+  return worker.adapter ?? worker.provider ?? worker.host ?? worker.kind;
+}
+
+async function validateCurrentModels(record: TemplateRecord): Promise<string | undefined> {
+  const entries = [
+    { label: 'Manager', adapter: record.config.manager.host, model: record.config.manager.model },
+    ...record.config.workers.map((worker) => ({
+      label: worker.alias || worker.id,
+      adapter: workerAdapter(worker),
+      model: worker.model,
+    })),
+  ];
+  for (const entry of entries) {
+    const model = entry.model?.trim() ?? '';
+    if (!model) continue;
+    const catalog = await loadModels(entry.adapter);
+    if (!modelIsAvailable(entry.adapter, model, catalog)) {
+      return `${entry.label}: choose a current model for ${entry.adapter}`;
+    }
+  }
+  return undefined;
+}
+
 async function saveCurrent(): Promise<void> {
   if (!state.current) return;
   const metadata = state.current.config.template;
-  const name = window.prompt('Template name', metadata.name)?.trim();
-  if (!name) return;
-  const id = window.prompt('Template ID (lowercase slug)', metadata.id)?.trim();
-  if (!id) return;
-  metadata.id = id;
-  metadata.name = name;
-  state.current.id = id;
-  state.current.name = name;
+  metadata.name = metadata.name.trim();
+  metadata.id = metadata.id.trim();
+  if (!metadata.name) { toast('Template name is required'); return; }
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u.test(metadata.id)) {
+    toast('Template ID must be a lowercase slug');
+    return;
+  }
+  const previous = { id: state.current.id, scope: state.current.scope, path: state.current.path };
   try {
-    const saved = await requestJson<TemplateRecord>(`/api/templates/${encodeURIComponent(id)}`, {
+    const invalidModel = await validateCurrentModels(state.current);
+    if (invalidModel) { toast(invalidModel); return; }
+    const saved = await requestJson<TemplateRecord>(`/api/templates/${encodeURIComponent(metadata.id)}`, {
       method: 'PUT', body: JSON.stringify(savePayload(state.current, state.saveScope)),
     });
-    const index = state.templates.findIndex((item) => item.id === saved.id && item.scope === saved.scope);
-    if (index >= 0) state.templates[index] = saved;
-    else state.templates.push(saved);
-    state.templates.sort((left, right) => left.id.localeCompare(right.id));
+    let cleanupFailed = false;
+    if (previous.path && previous.scope !== 'builtin' && (previous.id !== saved.id || previous.scope !== saved.scope)) {
+      try {
+        await requestJson(`/api/templates/${encodeURIComponent(previous.id)}?scope=${encodeURIComponent(previous.scope)}`, { method: 'DELETE' });
+      } catch { cleanupFailed = true; }
+    }
+    state.templates = await requestJson<TemplateRecord[]>('/api/templates');
     state.current = normalizeTemplate(saved);
     state.selected = null;
-    toast('Template saved');
+    toast(cleanupFailed ? 'Template saved; old template could not be removed' : 'Template saved');
     render();
   } catch (error) { toast(error instanceof Error ? error.message : String(error)); }
+}
+
+async function deleteTemplate(record: TemplateRecord | null = state.current): Promise<void> {
+  if (!record || record.scope === 'builtin' || !record.path) return;
+  const confirmed = await confirmDialog({
+    title: 'Delete template',
+    message: `Are you sure you want to delete template "${record.name}" (${record.scope})? This action cannot be undone.`,
+    confirmText: 'Delete',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
+  try {
+    await requestJson(`/api/templates/${encodeURIComponent(record.id)}?scope=${encodeURIComponent(record.scope)}`, { method: 'DELETE' });
+    state.templates = await requestJson<TemplateRecord[]>('/api/templates');
+    if (state.current?.id === record.id && state.current.scope === record.scope) {
+      const replacement = state.templates.find((item) => item.id === record.id) ?? state.templates[0];
+      state.current = replacement ? normalizeTemplate(replacement) : null;
+      state.selected = null;
+      state.viewport = resetViewport();
+    }
+    toast('Template deleted');
+    render();
+  } catch (error) { toast(error instanceof Error ? error.message : String(error)); }
+}
+
+async function moveTemplateGroup(record: TemplateRecord, group: string | undefined): Promise<boolean> {
+  if (record.scope === 'builtin' || !record.path) {
+    toast('Built-in templates cannot be reassigned');
+    return false;
+  }
+  const config = structuredClone(record.config);
+  config.template.group = group;
+  try {
+    await requestJson<TemplateRecord>(`/api/templates/${encodeURIComponent(record.id)}`, {
+      method: 'PUT', body: JSON.stringify({ scope: record.scope, config }),
+    });
+    state.templates = await requestJson<TemplateRecord[]>('/api/templates');
+    if (state.current?.id === record.id && state.current.scope === record.scope) {
+      state.current = normalizeTemplate(state.templates.find((item) => item.id === record.id && item.scope === record.scope) ?? record);
+    }
+    render();
+    return true;
+  } catch (error) {
+    toast(error instanceof Error ? error.message : String(error));
+    return false;
+  }
 }
 
 const modelRequests = new Map<string, Promise<ModelCatalogResponse>>();
@@ -172,7 +298,12 @@ async function controlRun(action: 'pause' | 'resume' | 'cancel'): Promise<void> 
 const renderBuilderView = mountBuilder(state, {
   selectTemplate,
   newTemplate,
+  newGroup: () => void newGroup(),
+  deleteGroup,
   addWorker: addWorkerToCurrent,
+  saveTemplate: () => void saveCurrent(),
+  deleteTemplate: (record) => void deleteTemplate(record),
+  moveTemplateGroup,
   deleteSelected,
   loadModels,
 });
@@ -199,6 +330,7 @@ const scopeControl = mountCombobox(byId('save-scope-control'), {
 });
 mountThemeToggle();
 mountInfoPopovers();
+mountSidebarResizers(byId('builder-view'));
 
 function render(): void {
   for (const view of ['builder', 'templates', 'runtime', 'history'] as ViewName[]) {
@@ -208,9 +340,11 @@ function render(): void {
     button.classList.toggle('active', button.dataset.view === state.view);
   }
   scopeControl.setValue(state.saveScope);
-  byId<HTMLButtonElement>('save-template').disabled = !state.current;
   renderBuilderView();
-  renderTemplates(state, (record) => { selectTemplate(record); setView('builder'); });
+  renderTemplates(state, {
+    open(record) { selectTemplate(record); setView('builder'); },
+    delete(record) { void deleteTemplate(record); },
+  });
   renderRunViews();
 }
 
@@ -218,6 +352,11 @@ async function initialize(): Promise<void> {
   try {
     const bootstrap = await requestJson<BootstrapResponse>('/api/bootstrap');
     state.templates = bootstrap.templates;
+    for (const item of bootstrap.templates) {
+      const g = item.config?.template?.group || item.group;
+      if (g && !state.groups.includes(g)) state.groups.push(g);
+    }
+    storeGroups();
     state.runs = bootstrap.runs;
     state.historyRuns = bootstrap.history_runs;
     state.roles = bootstrap.roles;
@@ -231,7 +370,6 @@ async function initialize(): Promise<void> {
 for (const button of document.querySelectorAll<HTMLButtonElement>('[data-view]')) {
   button.addEventListener('click', () => setView(button.dataset.view as ViewName));
 }
-byId('save-template').addEventListener('click', () => void saveCurrent());
 byId('refresh-runs').addEventListener('click', () => void refreshRuns());
 byId('refresh-history').addEventListener('click', () => void refreshRuns());
 render();

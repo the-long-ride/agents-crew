@@ -19,12 +19,15 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.branch }}
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 22
           package-manager-cache: false
+      - name: Install repository tooling
+        run: pnpm install --frozen-lockfile
       - name: Verify source
-        run: npm run check
+        run: pnpm run check
       - name: Create npm tarball
         run: |
           mkdir -p artifacts

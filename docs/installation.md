@@ -17,11 +17,13 @@ Node.js 22.13 or newer is required. Git is required for repository and worktree 
 ```bash
 git clone <repository-url>
 cd agents-crew
-npm run build
+corepack enable
+pnpm install --frozen-lockfile
+pnpm run build
 npm link
 ```
 
-There are no package dependencies, so `npm install` is not required for the normal local build/link loop.
+pnpm is the repository package manager. The package intentionally has no runtime or development dependencies; the install step validates the committed lockfile. `npm link` remains the local compatibility check for users who install the published CLI through npm.
 
 ## Initialize a repository
 

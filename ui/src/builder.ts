@@ -15,7 +15,12 @@ import type {
 export interface BuilderActions {
   selectTemplate(record: TemplateRecord): void;
   newTemplate(): void;
+  newGroup?: () => void;
+  deleteGroup?: (groupName: string) => void;
   addWorker(): void;
+  saveTemplate(): void;
+  deleteTemplate(record?: TemplateRecord): void;
+  moveTemplateGroup?(record: TemplateRecord, group: string | undefined): Promise<boolean>;
   deleteSelected(): void;
   loadModels(host: string, refresh?: boolean): Promise<ModelCatalogResponse>;
 }
@@ -71,21 +76,36 @@ function modelDescription(model: ModelSuggestion): string {
     .filter(Boolean).join(' · ');
 }
 
-function modelOptions(state: AppState, catalog?: ModelCatalogResponse): ComboboxOption[] {
-  const options: ComboboxOption[] = state.models.map((value) => ({ value, label: value, description: 'Manual/default model setting' }));
-  for (const model of catalog?.models ?? []) {
-    if (options.some((option) => option.value === model.id)) continue;
-    options.push({ value: model.id, label: model.name, description: modelDescription(model), keywords: [model.provider] });
-  }
-  return options;
+export function modelValueForAdapter(adapter: string, model: ModelSuggestion): string {
+  const normalized = adapter.trim().toLowerCase();
+  if (normalized !== 'opencode') return model.id;
+  return model.id.startsWith(`${model.provider}/`) ? model.id : `${model.provider}/${model.id}`;
+}
+
+export function modelOptionsForCatalog(catalog?: ModelCatalogResponse): ComboboxOption[] {
+  if (!catalog || !['live', 'cache'].includes(catalog.source)) return [];
+  return catalog.models.map((model) => ({
+    value: modelValueForAdapter(catalog.host, model),
+    label: model.name,
+    description: modelDescription(model),
+    keywords: [model.provider, model.id],
+  }));
+}
+
+export function modelIsAvailable(adapter: string, model: string | undefined, catalog?: ModelCatalogResponse): boolean {
+  const value = model?.trim() ?? '';
+  if (!value) return true;
+  if (!catalog || !['live', 'cache'].includes(catalog.source)) return false;
+  return modelOptionsForCatalog(catalog).some((option) => option.value === value)
+    && catalog.host.trim().toLowerCase() === adapter.trim().toLowerCase();
 }
 
 function catalogStatus(catalog: ModelCatalogResponse): string {
   if (catalog.source === 'live') return `Models.dev live catalog · ${catalog.models.length} models`;
   if (catalog.source === 'cache') return `Models.dev cache · ${catalog.models.length} models`;
-  if (catalog.source === 'stale') return `Stale catalog · ${catalog.error ?? 'refresh failed'} · manual IDs still work`;
-  if (catalog.source === 'none') return 'No public catalog mapping for this host · enter a model ID manually';
-  return `Catalog unavailable · ${catalog.error ?? 'unknown error'} · enter a model ID manually`;
+  if (catalog.source === 'stale') return `Catalog is stale · ${catalog.error ?? 'refresh failed'} · no models selectable`;
+  if (catalog.source === 'none') return 'No catalog mapping for this adapter';
+  return `Catalog unavailable · ${catalog.error ?? 'unknown error'} · no models selectable`;
 }
 
 export function mountBuilder(state: AppState, actions: BuilderActions): () => void {
@@ -94,6 +114,11 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
   const canvas = byId<HTMLDivElement>('crew-canvas');
   const world = byId<HTMLDivElement>('crew-world');
   const title = byId<HTMLElement>('canvas-title');
+  const templateName = byId<HTMLInputElement>('template-name');
+  const templateId = byId<HTMLInputElement>('template-id');
+  const templateGroup = byId<HTMLSelectElement>('template-group');
+  const saveTemplate = byId<HTMLButtonElement>('save-template');
+  const deleteTemplate = byId<HTMLButtonElement>('delete-template');
   const inspector = byId<HTMLDivElement>('inspector');
   const zoomLevel = byId<HTMLElement>('zoom-level');
   let canvasSize = { width: canvas.clientWidth, height: canvas.clientHeight };
@@ -114,18 +139,247 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
     zoomLevel.textContent = `${Math.round(scale * 100)}%`;
   }
 
+  function renderMetadata(): void {
+    const metadata = state.current?.config.template;
+    title.textContent = metadata?.name ?? 'No template';
+    templateName.value = metadata?.name ?? '';
+    templateId.value = metadata?.id ?? '';
+    
+    const currentGroup = metadata?.group ?? state.current?.group ?? '';
+    const definedGroups = new Set<string>(state.groups || []);
+    for (const item of state.templates) {
+      const g = item.config?.template?.group || item.group;
+      if (g) definedGroups.add(g);
+    }
+    if (currentGroup) definedGroups.add(currentGroup);
+
+    let groupOptions = '<option value="">None (Ungrouped)</option>';
+    for (const g of Array.from(definedGroups).sort()) {
+      groupOptions += `<option value="${escapeHtml(g)}"${g === currentGroup ? ' selected' : ''}>${escapeHtml(g)}</option>`;
+    }
+    templateGroup.innerHTML = groupOptions;
+    templateGroup.value = currentGroup;
+
+    templateName.disabled = !metadata;
+    templateId.disabled = !metadata;
+    templateGroup.disabled = !metadata;
+    saveTemplate.disabled = !metadata;
+    deleteTemplate.disabled = !state.current?.path || state.current.scope === 'builtin';
+  }
+
   function renderTemplateList(): void {
     const query = state.search.trim().toLowerCase();
     const filtered = query
-      ? state.templates.filter((item) => `${item.id} ${item.name}`.toLowerCase().includes(query))
+      ? state.templates.filter((item) => `${item.id} ${item.name} ${item.config.template?.group || item.group || ''}`.toLowerCase().includes(query))
       : state.templates;
-    list.innerHTML = filtered.length ? filtered.map((item) => `<button type="button" class="list-row${state.current?.id === item.id && state.current.scope === item.scope ? ' selected' : ''}" data-template="${escapeHtml(item.scope)}:${escapeHtml(item.id)}"><span>${escapeHtml(item.name)}</span><small>${escapeHtml(item.scope)}</small></button>`).join('') : '<div class="empty">No matching templates.</div>';
-    for (const button of list.querySelectorAll<HTMLButtonElement>('[data-template]')) {
-      button.addEventListener('click', () => {
-        const record = state.templates.find((item) => `${item.scope}:${item.id}` === button.dataset.template);
+
+    if (!filtered.length) {
+      list.innerHTML = '<div class="empty">No matching templates.</div>';
+      return;
+    }
+
+    const definedGroups = new Set<string>(state.groups || []);
+    for (const item of state.templates) {
+      const g = item.config.template?.group || item.group;
+      if (g) definedGroups.add(g);
+    }
+
+    if (state.current) {
+      const activeGroup = state.current.config.template?.group || state.current.group;
+      const targetGroup = activeGroup || '__ungrouped__';
+      if (state.collapsedGroups?.includes(targetGroup)) {
+        state.collapsedGroups = state.collapsedGroups.filter((g) => g !== targetGroup);
+      }
+    }
+
+    const groupMap = new Map<string, TemplateRecord[]>();
+    for (const g of definedGroups) {
+      groupMap.set(g, []);
+    }
+
+    const ungrouped: TemplateRecord[] = [];
+    for (const item of filtered) {
+      const g = item.config.template?.group || item.group;
+      if (g && groupMap.has(g)) {
+        groupMap.get(g)!.push(item);
+      } else if (g) {
+        groupMap.set(g, [item]);
+      } else {
+        ungrouped.push(item);
+      }
+    }
+
+    let html = '';
+    for (const [groupName, items] of groupMap.entries()) {
+      const isCollapsed = (state.collapsedGroups || []).includes(groupName);
+      const isGroupEmpty = items.length === 0;
+      html += `<div class="group-section" data-drop-group="${escapeHtml(groupName)}">` +
+        `<div class="group-header">` +
+        `<button type="button" class="group-header-toggle${isCollapsed ? ' collapsed' : ''}" data-group-toggle="${escapeHtml(groupName)}" aria-expanded="${!isCollapsed}">` +
+          `<span class="group-header-title">` +
+            `<svg class="group-chevron" viewBox="0 0 20 20"><path d="m5 7.5 5 5 5-5"></path></svg>` +
+            `<span>${escapeHtml(groupName)}</span>` +
+          `</span>` +
+        `</button>` +
+          `<div class="group-header-right">` +
+            `<small>(${items.length})</small>` +
+            (isGroupEmpty ? `<button type="button" class="group-delete-button" data-delete-group="${escapeHtml(groupName)}" aria-label="Delete empty group ${escapeHtml(groupName)}" title="Delete group">` +
+              `<svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M5.5 4.5V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5M6.5 7v4.5M9.5 7v4.5M4 4.5l.7 8.4a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9l.7-8.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>` +
+            `</button>` : '') +
+          `</div>` +
+        `</div>` +
+        `<div class="group-items${isCollapsed ? ' collapsed' : ''}">` +
+          (items.length
+            ? items.map(renderRow).join('')
+            : '<div class="group-empty">No templates in this group.</div>') +
+        `</div>` +
+      `</div>`;
+    }
+
+    if (ungrouped.length || definedGroups.size > 0) {
+      if (definedGroups.size > 0) {
+        const isCollapsed = (state.collapsedGroups || []).includes('__ungrouped__');
+        html += `<div class="group-section" data-drop-group="__ungrouped__">` +
+          `<div class="group-header">` +
+          `<button type="button" class="group-header-toggle${isCollapsed ? ' collapsed' : ''}" data-group-toggle="__ungrouped__" aria-expanded="${!isCollapsed}">` +
+            `<span class="group-header-title">` +
+              `<svg class="group-chevron" viewBox="0 0 20 20"><path d="m5 7.5 5 5 5-5"></path></svg>` +
+              `<span>Ungrouped</span>` +
+            `</span>` +
+            `<small>(${ungrouped.length})</small>` +
+          `</button>` +
+          `</div>` +
+          `<div class="group-items${isCollapsed ? ' collapsed' : ''}">` +
+            ungrouped.map(renderRow).join('') +
+          `</div>` +
+        `</div>`;
+      } else {
+        html += `<div class="group-items">${ungrouped.map(renderRow).join('')}</div>`;
+      }
+    }
+
+    list.innerHTML = html;
+
+    for (const toggleBtn of list.querySelectorAll<HTMLButtonElement>('[data-group-toggle]')) {
+      toggleBtn.addEventListener('click', () => {
+        const gName = toggleBtn.dataset.groupToggle!;
+        state.collapsedGroups = state.collapsedGroups || [];
+        if (state.collapsedGroups.includes(gName)) {
+          state.collapsedGroups = state.collapsedGroups.filter((g) => g !== gName);
+        } else {
+          state.collapsedGroups.push(gName);
+        }
+        renderTemplateList();
+      });
+    }
+
+    for (const deleteGroupBtn of list.querySelectorAll<HTMLButtonElement>('[data-delete-group]')) {
+      deleteGroupBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const gName = deleteGroupBtn.dataset.deleteGroup!;
+        actions.deleteGroup?.(gName);
+      });
+    }
+
+    for (const selectBtn of list.querySelectorAll<HTMLButtonElement>('[data-select]')) {
+      selectBtn.addEventListener('click', () => {
+        const record = state.templates.find((item) => `${item.scope}:${item.id}` === selectBtn.dataset.select);
         if (record) actions.selectTemplate(record);
       });
     }
+
+    for (const deleteBtn of list.querySelectorAll<HTMLButtonElement>('[data-delete-template]')) {
+      deleteBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const record = state.templates.find((item) => `${item.scope}:${item.id}` === deleteBtn.dataset.deleteTemplate);
+        if (record) actions.deleteTemplate(record);
+      });
+    }
+
+    let draggedTemplateKey: string | null = null;
+
+    for (const row of list.querySelectorAll<HTMLElement>('.list-row[draggable="true"]')) {
+      row.addEventListener('dragstart', (e) => {
+        const key = row.dataset.template!;
+        draggedTemplateKey = key;
+        if (e.dataTransfer) {
+          e.dataTransfer.setData('text/plain', key);
+          e.dataTransfer.effectAllowed = 'move';
+        }
+        row.classList.add('dragging');
+      });
+
+      row.addEventListener('dragend', () => {
+        draggedTemplateKey = null;
+        row.classList.remove('dragging');
+        for (const section of list.querySelectorAll<HTMLElement>('[data-drop-group]')) {
+          section.classList.remove('drag-over');
+        }
+      });
+    }
+
+    for (const section of list.querySelectorAll<HTMLElement>('[data-drop-group]')) {
+      section.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        section.classList.add('drag-over');
+      });
+
+      section.addEventListener('dragleave', (e) => {
+        if (!section.contains(e.relatedTarget as Node)) {
+          section.classList.remove('drag-over');
+        }
+      });
+
+      section.addEventListener('drop', (e) => {
+        e.preventDefault();
+        section.classList.remove('drag-over');
+        const key = e.dataTransfer?.getData('text/plain') || draggedTemplateKey;
+        if (!key) return;
+
+        const record = state.templates.find((item) => `${item.scope}:${item.id}` === key);
+        if (!record) return;
+
+        const rawGroup = section.dataset.dropGroup!;
+        const targetGroup = rawGroup === '__ungrouped__' ? undefined : rawGroup;
+
+        const currentGroup = record.config.template?.group || record.group;
+        if (currentGroup === targetGroup) return;
+
+        void (async () => {
+          if (actions.moveTemplateGroup && !(await actions.moveTemplateGroup(record, targetGroup))) return;
+          record.group = targetGroup;
+          record.config.template.group = targetGroup;
+          if (state.current && `${state.current.scope}:${state.current.id}` === key) {
+            state.current.group = targetGroup;
+            state.current.config.template.group = targetGroup;
+            renderMetadata();
+          }
+          const collapseKey = targetGroup || '__ungrouped__';
+          if (state.collapsedGroups?.includes(collapseKey)) {
+            state.collapsedGroups = state.collapsedGroups.filter((g) => g !== collapseKey);
+          }
+          renderTemplateList();
+        })();
+      });
+    }
+  }
+
+  function renderRow(item: TemplateRecord): string {
+    const isSelected = state.current?.id === item.id && state.current.scope === item.scope;
+    const canDelete = Boolean(item.path && item.scope !== 'builtin');
+    const key = `${escapeHtml(item.scope)}:${escapeHtml(item.id)}`;
+    return `<div class="list-row${isSelected ? ' selected' : ''}" data-template="${key}" draggable="true">` +
+      `<button type="button" class="list-row-select" data-select="${key}">` +
+        `<span class="list-row-name">${escapeHtml(item.name)}</span>` +
+        `<small>${escapeHtml(item.scope)}</small>` +
+      `</button>` +
+      (canDelete
+        ? `<button type="button" class="list-row-delete" data-delete-template="${key}" aria-label="Delete template ${escapeHtml(item.name)}" title="Delete template">` +
+            `<svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M5.5 4.5V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5M6.5 7v4.5M9.5 7v4.5M4 4.5l.7 8.4a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9l.7-8.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>` +
+          `</button>`
+        : '') +
+    `</div>`;
   }
 
   function renderEdges(nodes = state.current ? nodeLayout(state.current) : []): void {
@@ -168,7 +422,6 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
   }
 
   function renderCanvas(): void {
-    title.textContent = state.current?.config.template.name ?? 'No template';
     if (!state.current) {
       world.innerHTML = '<div class="canvas-empty">No template selected.</div>';
       applyViewport();
@@ -189,12 +442,23 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
     try {
       const catalog = await actions.loadModels(host, refresh);
       if (!status.isConnected) return;
-      controller.setOptions(modelOptions(state, catalog), catalog.models.length ? 'No matching models' : 'Enter a model ID manually');
+      const options = modelOptionsForCatalog(catalog);
+      controller.setOptions(options, catalog.models.length ? 'No matching text LLMs' : 'No models available');
+      const data = selectedData(state);
+      if (data?.model && !options.some((option) => option.value === data.model)) {
+        data.model = '';
+        controller.setValue('');
+        renderCanvas();
+      }
       status.textContent = catalogStatus(catalog);
     } catch (error) {
       if (!status.isConnected) return;
-      controller.setOptions(modelOptions(state), 'Enter a model ID manually');
-      status.textContent = `Catalog unavailable · ${error instanceof Error ? error.message : String(error)} · manual IDs still work`;
+      controller.setOptions([], 'No models available');
+      const data = selectedData(state);
+      if (data) data.model = '';
+      controller.setValue('');
+      renderCanvas();
+      status.textContent = `Catalog unavailable · ${error instanceof Error ? error.message : String(error)} · no models selectable`;
     }
   }
 
@@ -206,19 +470,19 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
     inspector.innerHTML = `<form class="inspector-form" onsubmit="return false">
       <label>Alias<input class="input" data-field="alias" value="${escapeHtml(data.alias ?? '')}"></label>
       <div class="field-label"><span>Adapter / host</span><div id="adapter-combobox"></div></div>
-      <div class="field-label"><span>Model ID</span><div class="field-row"><div id="model-combobox"></div><button id="refresh-models" type="button" class="secondary-button">Refresh</button></div><p id="model-status" class="field-note">Public catalog suggestions; manual IDs are accepted.</p></div>
+      <div class="field-label"><span>Model</span><div class="field-row"><div id="model-combobox"></div><button id="refresh-models" type="button" class="secondary-button">Refresh</button></div><p id="model-status" class="field-note">Current text LLMs for the selected adapter.</p></div>
       ${worker ? `<fieldset><legend>Roles</legend><div class="check-grid">${state.roles.map((role) => `<label><input data-role="${escapeHtml(role)}" type="checkbox"${checked(worker.roles.includes(role))}> ${escapeHtml(role)}</label>`).join('')}</div></fieldset><fieldset><legend>Capabilities</legend><div class="check-grid">${state.capabilities.map((capability) => `<label><input data-capability="${escapeHtml(capability)}" type="checkbox"${checked(worker.capabilities.includes(capability))}> ${escapeHtml(capability)}</label>`).join('')}</div></fieldset><label class="toggle"><input data-field="network" type="checkbox"${checked(worker.requires_network ?? false)}> Requires network</label><label class="toggle"><input data-field="credentials" type="checkbox"${checked(worker.requires_credentials ?? false)}> Requires credentials</label><button id="delete-worker" type="button" class="danger-button">Delete worker</button>` : ''}
     </form>`;
 
     const currentAdapter = adapterValue(state, data);
     const adapter = mountCombobox(byId('adapter-combobox'), {
-      id: 'adapter-host', value: currentAdapter, options: adapterOptions(state, data), allowCustom: true,
-      placeholder: 'Choose or enter host',
-      onChange(value) { updateAdapter(state, data, value); renderCanvas(); renderInspector(); },
+      id: 'adapter-host', value: currentAdapter, options: adapterOptions(state, data), allowCustom: false,
+      placeholder: 'Choose adapter',
+      onChange(value) { updateAdapter(state, data, value); data.model = ''; renderCanvas(); renderInspector(); },
     });
     const model = mountCombobox(byId('model-combobox'), {
-      id: 'model-id', value: data.model ?? '', options: modelOptions(state, state.modelCatalogs[currentAdapter]),
-      allowCustom: true, placeholder: 'Choose or enter model ID',
+      id: 'model-id', value: data.model ?? '', options: modelOptionsForCatalog(state.modelCatalogs[currentAdapter]),
+      allowCustom: false, placeholder: 'Choose available LLM',
       onChange(value) { data.model = value; renderCanvas(); },
     });
     inspectorControls.push(adapter, model);
@@ -235,7 +499,7 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
   }
 
   canvas.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0 || (event.target as Element).closest('.crew-node')) return;
+    if (event.button !== 0 || (event.target as Element).closest('.crew-node, .canvas-controls')) return;
     canvas.setPointerCapture(event.pointerId);
     panStart = { pointerId: event.pointerId, x: state.viewport.x, y: state.viewport.y, clientX: event.clientX, clientY: event.clientY };
   });
@@ -266,8 +530,24 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
   }
 
   search.addEventListener('input', () => { state.search = search.value; renderTemplateList(); });
+  templateName.addEventListener('input', () => {
+    if (!state.current) return;
+    state.current.config.template.name = templateName.value;
+    title.textContent = templateName.value || 'Untitled template';
+  });
+  templateId.addEventListener('input', () => { if (state.current) state.current.config.template.id = templateId.value; });
+  templateGroup.addEventListener('change', () => {
+    if (!state.current) return;
+    const groupVal = templateGroup.value || undefined;
+    state.current.group = groupVal;
+    state.current.config.template.group = groupVal;
+    renderTemplateList();
+  });
   byId('new-template').addEventListener('click', actions.newTemplate);
+  byId('new-group')?.addEventListener('click', () => { actions.newGroup?.(); });
   byId('add-worker').addEventListener('click', actions.addWorker);
+  saveTemplate.addEventListener('click', actions.saveTemplate);
+  deleteTemplate.addEventListener('click', actions.deleteTemplate);
   byId('fit-graph').addEventListener('click', () => {
     if (!state.current) return;
     state.viewport = fitViewport(nodeLayout(state.current), { width: canvas.clientWidth, height: canvas.clientHeight });
@@ -278,6 +558,7 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
   return (): void => {
     search.value = state.search;
     renderTemplateList();
+    renderMetadata();
     renderCanvas();
     renderInspector();
   };
