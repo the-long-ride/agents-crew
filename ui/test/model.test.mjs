@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { modelIsAvailable, modelOptionsForCatalog, modelValueForAdapter } from '../../dist/ui/assets/builder.js';
 import {
-  addWorker,
+  addMember,
   edgeLayout,
   nodeLayout,
-  normalizeTemplate,
-  removeWorker,
+  normalizeCrew,
+  removeMember,
   savePayload,
 } from '../../dist/ui/assets/model.js';
 
@@ -41,9 +41,9 @@ function template() {
 
 test('normalization supplies manager and worker defaults without mutating source', () => {
   const value = template();
-  value.config.workers.push({ id: 'worker-1', kind: 'cli' });
-  const normalized = normalizeTemplate(value);
-  assert.equal(normalized.config.manager.alias, 'Manager');
+  value.config.workers.push({ id: 'member-1', kind: 'cli' });
+  const normalized = normalizeCrew(value);
+  assert.equal(normalized.config.manager.alias, 'Boss');
   assert.equal(normalized.config.manager.model, '');
   assert.equal(normalized.config.workers[0].model, '');
   assert.deepEqual(normalized.config.workers[0].capabilities, ['read']);
@@ -51,35 +51,35 @@ test('normalization supplies manager and worker defaults without mutating source
 });
 
 test('worker nodes and edges receive deterministic positions', () => {
-  let value = normalizeTemplate(template());
-  value = addWorker(value);
-  value = addWorker(value);
+  let value = normalizeCrew(template());
+  value = addMember(value);
+  value = addMember(value);
   assert.equal(value.config.workers[0].model, '');
   const nodes = nodeLayout(value);
-  assert.equal(nodes[0].type, 'manager');
+  assert.equal(nodes[0].type, 'boss');
   assert.equal(nodes[1].x, 430);
   assert.equal(nodes[2].x, 690);
   assert.equal(edgeLayout(nodes).length, 2);
 });
 
 test('saved layout overrides generated position', () => {
-  let value = addWorker(normalizeTemplate(template()));
-  value.config.template.layout['worker-1'] = { x: 111, y: 222 };
+  let value = addMember(normalizeCrew(template()));
+  value.config.template.layout['member-1'] = { x: 111, y: 222 };
   const nodes = nodeLayout(value);
   assert.equal(nodes[1].x, 111);
   assert.equal(nodes[1].y, 222);
 });
 
 test('removing a worker also removes its layout', () => {
-  let value = addWorker(normalizeTemplate(template()));
-  value.config.template.layout['worker-1'] = { x: 10, y: 20 };
-  value = removeWorker(value, 'worker-1');
+  let value = addMember(normalizeCrew(template()));
+  value.config.template.layout['member-1'] = { x: 10, y: 20 };
+  value = removeMember(value, 'member-1');
   assert.equal(value.config.workers.length, 0);
-  assert.equal(value.config.template.layout['worker-1'], undefined);
+  assert.equal(value.config.template.layout['member-1'], undefined);
 });
 
 test('save payload carries selected scope and cloned config', () => {
-  const value = normalizeTemplate(template());
+  const value = normalizeCrew(template());
   const payload = savePayload(value, 'workspace');
   assert.equal(payload.scope, 'workspace');
   assert.equal(payload.config.template.id, 'crew');

@@ -1,6 +1,6 @@
 {
   "name": "@agents-crew/cli",
-  "version": "0.3.0",
+  "version": "0.0.1",
   "description": "Dependency-free TypeScript multi-agent crew orchestration for Codex, Claude Code, OpenCode, and Antigravity.",
   "type": "module",
   "bin": {

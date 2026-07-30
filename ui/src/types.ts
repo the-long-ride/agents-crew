@@ -1,12 +1,12 @@
-export type TemplateScope = 'builtin' | 'global' | 'workspace';
-export type WritableTemplateScope = Exclude<TemplateScope, 'builtin'>;
+export type CrewScope = 'builtin' | 'global' | 'workspace';
+export type WritableCrewScope = Exclude<CrewScope, 'builtin'>;
 export type ViewName = 'builder' | 'templates' | 'runtime' | 'history';
-export type NodeKind = 'manager' | 'worker';
+export type NodeKind = 'boss' | 'member';
 
 export interface Position { x: number; y: number }
 export interface GraphViewport { x: number; y: number; scale: number }
-export interface TemplateMetadata { id: string; name: string; description: string; group?: string; layout: Record<string, Position> }
-export interface ManagerConfig {
+export interface CrewMetadata { id: string; name: string; description: string; group?: string; layout: Record<string, Position> }
+export interface BossInformation {
   host: string;
   alias?: string;
   model?: string;
@@ -14,7 +14,7 @@ export interface ManagerConfig {
   small_fix_max_files: number;
   small_fix_max_changed_lines: number;
 }
-export interface WorkerConfig {
+export interface MemberConfig {
   id: string;
   alias?: string;
   kind: 'native' | 'cli' | 'api';
@@ -39,30 +39,22 @@ export interface WorkerConfig {
 }
 export interface CrewConfig {
   version: number;
-  template: TemplateMetadata;
+  template: CrewMetadata;
   run: Record<string, unknown>;
-  manager: ManagerConfig;
+  manager: BossInformation;
   autonomy: Record<string, unknown>;
   permissions: Record<string, unknown>;
   verification: Record<string, unknown>;
-  workers: WorkerConfig[];
+  workers: MemberConfig[];
 }
-export interface TemplateRecord {
-  id: string;
-  name: string;
-  description: string;
-  group?: string;
-  scope: TemplateScope;
-  path?: string;
-  config: CrewConfig;
-}
+export type CrewRecord = { id: string; name: string; description: string; group?: string; scope: CrewScope; path?: string; config: CrewConfig };
 export interface CanvasNode {
   id: string;
   type: NodeKind;
   index?: number;
   x: number;
   y: number;
-  data: ManagerConfig | WorkerConfig;
+  data: BossInformation | MemberConfig;
 }
 export interface CanvasEdge { id: string; x1: number; y1: number; x2: number; y2: number }
 export interface Selection { id: string; type: NodeKind }
@@ -88,13 +80,13 @@ export interface RunSummary {
   id: string;
   goal: string;
   status: string;
-  manager: string;
+  boss: string;
   updated_at: string;
   archived: boolean;
   completed_tasks: number;
   total_tasks: number;
 }
-export interface RunTask { id: string; title: string; status: string; role: string; assigned_worker?: string }
+export interface RunTask { id: string; title: string; status: string; role: string; assigned_member?: string }
 export interface RunEvent { sequence: number; kind: string; timestamp: string; data?: unknown }
 export interface RunRecord {
   id: string;
@@ -114,24 +106,24 @@ export interface RunDetail {
   expired_actions: unknown[];
 }
 export interface BootstrapResponse {
-  templates: TemplateRecord[];
+  crews: CrewRecord[];
   runs: RunSummary[];
   history_runs: RunSummary[];
   roles: string[];
   capabilities: string[];
   model_presets: string[];
 }
-export interface SaveTemplateRequest { scope: WritableTemplateScope; config: CrewConfig }
+export interface SaveCrewRequest { scope: WritableCrewScope; config: CrewConfig }
 
 export interface AppState {
-  templates: TemplateRecord[];
+  crews: CrewRecord[];
   runs: RunSummary[];
   historyRuns: RunSummary[];
   roles: string[];
   capabilities: string[];
   models: string[];
   modelCatalogs: Record<string, ModelCatalogResponse | undefined>;
-  current: TemplateRecord | null;
+  current: CrewRecord | null;
   selected: Selection | null;
   selectedRunId: string | null;
   runDetail: RunDetail | null;
@@ -140,7 +132,7 @@ export interface AppState {
   viewport: GraphViewport;
   view: ViewName;
   search: string;
-  saveScope: WritableTemplateScope;
+  saveScope: WritableCrewScope;
   groups: string[];
   collapsedGroups: string[];
 }

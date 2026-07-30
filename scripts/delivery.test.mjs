@@ -18,23 +18,23 @@ test('runtime implementation is grouped into source subdirectories', async () =>
 
 
 
-test('built UI contains Builder, Templates, Runtime, and History modules', async () => {
-  const html = await readFile(new URL('../dist/ui/index.html', import.meta.url), 'utf8');
+test('built UI contains Builder, Crews, Runtime, and History modules', async () => {
+  const html = await readFile(new URL('../dist/ui/index.html', import.meta.url), 'utf-8');
   assert.match(html, />Builder</u);
-  assert.match(html, />Templates</u);
+  assert.match(html, />Crews</u);
   assert.match(html, />Runtime</u);
   assert.match(html, />History</u);
   assert.match(html, /id="fit-graph"/u);
   assert.match(html, /id="reset-zoom"/u);
-  assert.match(html, /id="template-name"/u);
-  assert.match(html, /id="template-id"/u);
+  assert.match(html, /id="crew-name"/u);
+  assert.match(html, /id="crew-id"/u);
   assert.match(html, /data-sidebar-resizer="left"/u);
   assert.match(html, /data-sidebar-resizer="right"/u);
-  assert.match(html, /id="delete-template"/u);
-  assert.ok(html.indexOf('id="save-template"') < html.indexOf('id="add-worker"'), 'save must be left of add worker');
+  assert.match(html, /id="delete-crew"/u);
+  assert.ok(html.indexOf('id="save-crew"') < html.indexOf('id="add-member"'), 'save must be left of add member');
   assert.match(html, /data-theme="light"/u);
   assert.match(html, /data-theme="dark"/u);
-  assert.match(html, /<select id="template-group"/iu);
+  assert.match(html, /<select id="crew-group"/iu);
   for (const asset of ['app.js', 'builder.js', 'templates.js', 'runtime.js', 'model.js', 'api.js', 'theme.js', 'components/combobox.js', 'components/info.js', 'graph/viewport.js']) {
     const source = await readFile(new URL(`../dist/ui/assets/${asset}`, import.meta.url), 'utf8');
     assert.ok(source.length > 0, `empty UI asset ${asset}`);

@@ -11,7 +11,7 @@ export function resizeSidebarWidth(startWidth: number, pointerDelta: number, sid
 export function mountSidebarResizers(builder: HTMLElement): void {
   for (const handle of builder.querySelectorAll<HTMLElement>('[data-sidebar-resizer]')) {
     const side = handle.dataset.sidebarResizer as SidebarSide;
-    const panel = builder.querySelector<HTMLElement>(side === 'left' ? '.template-panel' : '.inspector-panel');
+    const panel = builder.querySelector<HTMLElement>(side === 'left' ? '.crew-panel' : '.inspector-panel');
     if (!panel) continue;
     handle.addEventListener('pointerdown', (event) => {
       if (event.button !== 0) return;

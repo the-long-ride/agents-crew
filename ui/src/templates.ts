@@ -1,12 +1,12 @@
 import { byId, escapeHtml } from './dom.js';
-import type { AppState, TemplateRecord } from './types.js';
+import type { AppState, CrewRecord } from './types.js';
 
-export interface TemplateActions {
-  open(record: TemplateRecord): void;
-  delete(record: TemplateRecord): void;
+export interface CrewActions {
+  open(record: CrewRecord): void;
+  delete(record: CrewRecord): void;
 }
 
-function row(record: TemplateRecord): string {
+function row(record: CrewRecord): string {
   const key = `${escapeHtml(record.scope)}:${escapeHtml(record.id)}`;
   const deleteButton = record.scope === 'builtin'
     ? ''
@@ -16,30 +16,30 @@ function row(record: TemplateRecord): string {
     <td><code>${escapeHtml(record.id)}</code></td>
     <td><span class="scope-label scope-${escapeHtml(record.scope)}">${escapeHtml(record.scope)}</span></td>
     <td>${record.config.workers.length}</td>
-    <td><small>${escapeHtml(record.path || (record.scope === 'builtin' ? 'Bundled with Agents Crew' : 'Managed template'))}</small></td>
+    <td><small>${escapeHtml(record.path || (record.scope === 'builtin' ? 'Bundled with Agents Crew' : 'Managed crew'))}</small></td>
     <td><div class="table-actions"><button type="button" class="secondary-button" data-open="${key}">Open builder</button>${deleteButton}</div></td>
   </tr>`;
 }
 
-export function templateTableMarkup(records: TemplateRecord[]): string {
+export function crewTableMarkup(records: CrewRecord[]): string {
   return records.length ? `<table class="data-table">
-    <thead><tr><th>Name</th><th>ID</th><th>Scope</th><th>Workers</th><th>Source</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Name</th><th>ID</th><th>Scope</th><th>Members</th><th>Source</th><th>Actions</th></tr></thead>
     <tbody>${records.map(row).join('')}</tbody>
-  </table>` : '<div class="empty">No templates found.</div>';
+  </table>` : '<div class="empty">No crews found.</div>';
 }
 
-export function renderTemplates(state: AppState, actions: TemplateActions): void {
-  const root = byId<HTMLDivElement>('template-table');
-  root.innerHTML = templateTableMarkup(state.templates);
+export function renderAllCrews(state: AppState, actions: CrewActions): void {
+  const root = byId<HTMLDivElement>('crew-table');
+  root.innerHTML = crewTableMarkup(state.crews);
   for (const button of root.querySelectorAll<HTMLButtonElement>('[data-open]')) {
     button.addEventListener('click', () => {
-      const record = state.templates.find((item) => `${item.scope}:${item.id}` === button.dataset.open);
+      const record = state.crews.find((item) => `${item.scope}:${item.id}` === button.dataset.open);
       if (record) actions.open(record);
     });
   }
   for (const button of root.querySelectorAll<HTMLButtonElement>('[data-delete]')) {
     button.addEventListener('click', () => {
-      const record = state.templates.find((item) => `${item.scope}:${item.id}` === button.dataset.delete);
+      const record = state.crews.find((item) => `${item.scope}:${item.id}` === button.dataset.delete);
       if (record) actions.delete(record);
     });
   }

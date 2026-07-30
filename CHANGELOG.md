@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.1
+
+- Added double-click inline rename for crew and group items in the Crew library sidebar (Enter/blur to save, Escape to cancel).
+- Redesigned canvas toolbar as a 2×2 grid: eyebrow + info button on top row, metadata inputs + action buttons on bottom row.
+- Moved graph zoom controls (Fit, Reset zoom) from header to absolute overlay on canvas top-right.
+- Renamed UI terminology: Template→Crew, Manager→Boss, Worker→Member across all TypeScript types, variables, functions, HTML IDs, CSS classes, labels, and test files.
+- Fixed missing `#canvas-title` element preventing Builder view from mounting.
+- Added Engram project memory workspace for all rules, knowledge, workflows, and skills from AGENTS_CREW_AGENT_MEMORY.md.
+- Updated delivery test assertions to match renamed terminology.
+
 ## 0.3.0
 
 - Added grab-to-pan, pointer-centered wheel zoom, Fit, and Reset controls to the Builder graph without canvas scrollbars.

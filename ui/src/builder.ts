@@ -5,44 +5,46 @@ import { edgeLayout, nodeLayout } from './model.js';
 import type {
   AppState,
   CanvasNode,
-  ManagerConfig,
+  BossInformation,
   ModelCatalogResponse,
   ModelSuggestion,
-  TemplateRecord,
-  WorkerConfig,
+  CrewRecord,
+  MemberConfig,
 } from './types.js';
 
 export interface BuilderActions {
-  selectTemplate(record: TemplateRecord): void;
-  newTemplate(): void;
+  selectCrew(record: CrewRecord): void;
+  newCrew(): void;
   newGroup?: () => void;
   deleteGroup?: (groupName: string) => void;
-  addWorker(): void;
-  saveTemplate(): void;
-  deleteTemplate(record?: TemplateRecord): void;
-  moveTemplateGroup?(record: TemplateRecord, group: string | undefined): Promise<boolean>;
+  renameGroup?(oldName: string, newName: string): Promise<boolean>;
+  addMemberInternal(): void;
+  saveCrew(): void;
+  deleteCrew(record?: CrewRecord): void;
+  renameCrew?(record: CrewRecord, newName: string): Promise<boolean>;
+  moveCrewGroup?(record: CrewRecord, group: string | undefined): Promise<boolean>;
   deleteSelected(): void;
   loadModels(host: string, refresh?: boolean): Promise<ModelCatalogResponse>;
 }
 
-function selectedData(state: AppState): ManagerConfig | WorkerConfig | null {
+function selectedData(state: AppState): BossInformation | MemberConfig | null {
   if (!state.current || !state.selected) return null;
-  if (state.selected.type === 'manager') return state.current.config.manager;
-  return state.current.config.workers.find((worker) => worker.id === state.selected?.id) ?? null;
+  if (state.selected.type === 'boss') return state.current.config.manager;
+  return state.current.config.workers.find((member) => member.id === state.selected?.id) ?? null;
 }
 
-function adapterValue(state: AppState, data: ManagerConfig | WorkerConfig): string {
-  if (state.selected?.type === 'manager') return (data as ManagerConfig).host;
-  const worker = data as WorkerConfig;
-  return worker.adapter ?? worker.provider ?? worker.host ?? worker.kind;
+function adapterValue(state: AppState, data: BossInformation | MemberConfig): string {
+  if (state.selected?.type === 'boss') return (data as BossInformation).host;
+  const member = data as MemberConfig;
+  return member.adapter ?? member.provider ?? member.host ?? member.kind;
 }
 
-function updateAdapter(state: AppState, data: ManagerConfig | WorkerConfig, value: string): void {
-  if (state.selected?.type === 'manager') { (data as ManagerConfig).host = value; return; }
-  const worker = data as WorkerConfig;
-  if (worker.kind === 'api') worker.provider = value;
-  else if (worker.kind === 'native') worker.host = value;
-  else worker.adapter = value;
+function updateAdapter(state: AppState, data: BossInformation | MemberConfig, value: string): void {
+  if (state.selected?.type === 'boss') { (data as BossInformation).host = value; return; }
+  const member = data as MemberConfig;
+  if (member.kind === 'api') member.provider = value;
+  else if (member.kind === 'native') member.host = value;
+  else member.adapter = value;
 }
 
 function toggle(values: string[], value: string, enabled: boolean): void {
@@ -51,15 +53,15 @@ function toggle(values: string[], value: string, enabled: boolean): void {
   if (!enabled && index >= 0) values.splice(index, 1);
 }
 
-function adapterOptions(state: AppState, data: ManagerConfig | WorkerConfig): ComboboxOption[] {
-  if (state.selected?.type === 'manager') {
+function adapterOptions(state: AppState, data: BossInformation | MemberConfig): ComboboxOption[] {
+  if (state.selected?.type === 'boss') {
     return ['claude-code', 'codex', 'antigravity', 'opencode'].map((value) => ({ value, label: value }));
   }
-  const worker = data as WorkerConfig;
-  const values = worker.kind === 'api'
+  const member = data as MemberConfig;
+  const values = member.kind === 'api'
     ? ['openai', 'anthropic', 'google']
-    : worker.kind === 'native'
-      ? ['manager', 'claude-code', 'codex', 'antigravity']
+    : member.kind === 'native'
+      ? ['boss', 'claude-code', 'codex', 'antigravity']
       : ['opencode', 'codex', 'claude-code', 'antigravity'];
   return values.map((value) => ({ value, label: value }));
 }
@@ -109,16 +111,16 @@ function catalogStatus(catalog: ModelCatalogResponse): string {
 }
 
 export function mountBuilder(state: AppState, actions: BuilderActions): () => void {
-  const search = byId<HTMLInputElement>('template-search');
-  const list = byId<HTMLDivElement>('template-list');
+  const search = byId<HTMLInputElement>('crew-search');
+  const list = byId<HTMLDivElement>('crew-list');
   const canvas = byId<HTMLDivElement>('crew-canvas');
   const world = byId<HTMLDivElement>('crew-world');
   const title = byId<HTMLElement>('canvas-title');
-  const templateName = byId<HTMLInputElement>('template-name');
-  const templateId = byId<HTMLInputElement>('template-id');
-  const templateGroup = byId<HTMLSelectElement>('template-group');
-  const saveTemplate = byId<HTMLButtonElement>('save-template');
-  const deleteTemplate = byId<HTMLButtonElement>('delete-template');
+  const crewName = byId<HTMLInputElement>('crew-name');
+  const crewId = byId<HTMLInputElement>('crew-id');
+  const crewGroup = byId<HTMLSelectElement>('crew-group');
+  const saveCrew = byId<HTMLButtonElement>('save-crew');
+  const deleteCrew = byId<HTMLButtonElement>('delete-crew');
   const inspector = byId<HTMLDivElement>('inspector');
   const zoomLevel = byId<HTMLElement>('zoom-level');
   let canvasSize = { width: canvas.clientWidth, height: canvas.clientHeight };
@@ -141,13 +143,13 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
 
   function renderMetadata(): void {
     const metadata = state.current?.config.template;
-    title.textContent = metadata?.name ?? 'No template';
-    templateName.value = metadata?.name ?? '';
-    templateId.value = metadata?.id ?? '';
-    
+    title.textContent = metadata?.name ?? 'No crew';
+    crewName.value = metadata?.name ?? '';
+    crewId.value = metadata?.id ?? '';
+
     const currentGroup = metadata?.group ?? state.current?.group ?? '';
     const definedGroups = new Set<string>(state.groups || []);
-    for (const item of state.templates) {
+    for (const item of state.crews) {
       const g = item.config?.template?.group || item.group;
       if (g) definedGroups.add(g);
     }
@@ -157,29 +159,29 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
     for (const g of Array.from(definedGroups).sort()) {
       groupOptions += `<option value="${escapeHtml(g)}"${g === currentGroup ? ' selected' : ''}>${escapeHtml(g)}</option>`;
     }
-    templateGroup.innerHTML = groupOptions;
-    templateGroup.value = currentGroup;
+    crewGroup.innerHTML = groupOptions;
+    crewGroup.value = currentGroup;
 
-    templateName.disabled = !metadata;
-    templateId.disabled = !metadata;
-    templateGroup.disabled = !metadata;
-    saveTemplate.disabled = !metadata;
-    deleteTemplate.disabled = !state.current?.path || state.current.scope === 'builtin';
+    crewName.disabled = !metadata;
+    crewId.disabled = !metadata;
+    crewGroup.disabled = !metadata;
+    saveCrew.disabled = !metadata;
+    deleteCrew.disabled = !state.current?.path || state.current.scope === 'builtin';
   }
 
-  function renderTemplateList(): void {
+  function renderCrewList(): void {
     const query = state.search.trim().toLowerCase();
     const filtered = query
-      ? state.templates.filter((item) => `${item.id} ${item.name} ${item.config.template?.group || item.group || ''}`.toLowerCase().includes(query))
-      : state.templates;
+      ? state.crews.filter((item) => `${item.id} ${item.name} ${item.config.template?.group || item.group || ''}`.toLowerCase().includes(query))
+      : state.crews;
 
     if (!filtered.length) {
-      list.innerHTML = '<div class="empty">No matching templates.</div>';
+      list.innerHTML = '<div class="empty">No matching crews.</div>';
       return;
     }
 
     const definedGroups = new Set<string>(state.groups || []);
-    for (const item of state.templates) {
+    for (const item of state.crews) {
       const g = item.config.template?.group || item.group;
       if (g) definedGroups.add(g);
     }
@@ -192,12 +194,12 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
       }
     }
 
-    const groupMap = new Map<string, TemplateRecord[]>();
+    const groupMap = new Map<string, CrewRecord[]>();
     for (const g of definedGroups) {
       groupMap.set(g, []);
     }
 
-    const ungrouped: TemplateRecord[] = [];
+    const ungrouped: CrewRecord[] = [];
     for (const item of filtered) {
       const g = item.config.template?.group || item.group;
       if (g && groupMap.has(g)) {
@@ -231,7 +233,7 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
         `<div class="group-items${isCollapsed ? ' collapsed' : ''}">` +
           (items.length
             ? items.map(renderRow).join('')
-            : '<div class="group-empty">No templates in this group.</div>') +
+            : '<div class="group-empty">No crews in this group.</div>') +
         `</div>` +
       `</div>`;
     }
@@ -269,7 +271,7 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
         } else {
           state.collapsedGroups.push(gName);
         }
-        renderTemplateList();
+        renderCrewList();
       });
     }
 
@@ -281,27 +283,97 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
       });
     }
 
-    for (const selectBtn of list.querySelectorAll<HTMLButtonElement>('[data-select]')) {
-      selectBtn.addEventListener('click', () => {
-        const record = state.templates.find((item) => `${item.scope}:${item.id}` === selectBtn.dataset.select);
-        if (record) actions.selectTemplate(record);
+    for (const titleEl of list.querySelectorAll<HTMLElement>('.group-header-title span:last-child')) {
+      titleEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const header = titleEl.closest('.group-header') as HTMLElement;
+        const toggleBtn = header?.querySelector<HTMLButtonElement>('[data-group-toggle]');
+        const groupName = toggleBtn?.dataset.groupToggle;
+        if (!groupName || groupName === '__ungrouped__') return;
+        const oldName = groupName;
+        const currentText = titleEl.textContent ?? '';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentText;
+        input.className = 'input group-rename-input';
+        input.style.cssText = 'font: 600 11px/1.2 var(--mono); padding: 2px 4px; width: 120px;';
+        titleEl.replaceWith(input);
+        input.focus();
+        input.select();
+        let done = false;
+        const finish = (): void => {
+          if (done) return;
+          done = true;
+          const val = input.value.trim();
+          input.replaceWith(titleEl);
+          if (val && val !== oldName) {
+            void actions.renameGroup?.(oldName, val);
+          }
+        };
+        input.addEventListener('blur', finish);
+        input.addEventListener('keydown', (ke) => {
+          if (ke.key === 'Enter') { ke.preventDefault(); finish(); }
+          else if (ke.key === 'Escape') { ke.preventDefault(); done = true; input.replaceWith(titleEl); }
+        });
       });
     }
 
-    for (const deleteBtn of list.querySelectorAll<HTMLButtonElement>('[data-delete-template]')) {
+    for (const selectBtn of list.querySelectorAll<HTMLButtonElement>('[data-select-crew]')) {
+      selectBtn.addEventListener('click', () => {
+        const record = state.crews.find((item) => `${item.scope}:${item.id}` === selectBtn.dataset.selectCrew);
+        if (record) actions.selectCrew(record);
+      });
+    }
+
+    for (const deleteBtn of list.querySelectorAll<HTMLButtonElement>('[data-delete-crew]')) {
       deleteBtn.addEventListener('click', (event) => {
         event.stopPropagation();
-        const record = state.templates.find((item) => `${item.scope}:${item.id}` === deleteBtn.dataset.deleteTemplate);
-        if (record) actions.deleteTemplate(record);
+        const record = state.crews.find((item) => `${item.scope}:${item.id}` === deleteBtn.dataset.deleteCrew);
+        if (record) actions.deleteCrew(record);
       });
     }
 
-    let draggedTemplateKey: string | null = null;
+    for (const nameEl of list.querySelectorAll<HTMLElement>('.list-row-name')) {
+      nameEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const row = nameEl.closest('.list-row') as HTMLElement;
+        if (!row) return;
+        const key = row.dataset.crew;
+        const record = state.crews.find((item) => `${item.scope}:${item.id}` === key);
+        if (!record || record.scope === 'builtin' || !record.path) return;
+        const currentText = nameEl.textContent ?? '';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentText;
+        input.className = 'input list-row-rename-input';
+        input.style.cssText = 'width: 100%; padding: 2px 4px; font-weight: 500;';
+        nameEl.replaceWith(input);
+        input.focus();
+        input.select();
+        let done = false;
+        const finish = (): void => {
+          if (done) return;
+          done = true;
+          const val = input.value.trim();
+          input.replaceWith(nameEl);
+          if (val && val !== currentText) {
+            void actions.renameCrew?.(record, val);
+          }
+        };
+        input.addEventListener('blur', finish);
+        input.addEventListener('keydown', (ke) => {
+          if (ke.key === 'Enter') { ke.preventDefault(); finish(); }
+          else if (ke.key === 'Escape') { ke.preventDefault(); done = true; input.replaceWith(nameEl); }
+        });
+      });
+    }
+
+    let draggedCrewKey: string | null = null;
 
     for (const row of list.querySelectorAll<HTMLElement>('.list-row[draggable="true"]')) {
       row.addEventListener('dragstart', (e) => {
-        const key = row.dataset.template!;
-        draggedTemplateKey = key;
+        const key = row.dataset.crew!;
+        draggedCrewKey = key;
         if (e.dataTransfer) {
           e.dataTransfer.setData('text/plain', key);
           e.dataTransfer.effectAllowed = 'move';
@@ -310,7 +382,7 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
       });
 
       row.addEventListener('dragend', () => {
-        draggedTemplateKey = null;
+        draggedCrewKey = null;
         row.classList.remove('dragging');
         for (const section of list.querySelectorAll<HTMLElement>('[data-drop-group]')) {
           section.classList.remove('drag-over');
@@ -334,10 +406,10 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
       section.addEventListener('drop', (e) => {
         e.preventDefault();
         section.classList.remove('drag-over');
-        const key = e.dataTransfer?.getData('text/plain') || draggedTemplateKey;
+        const key = e.dataTransfer?.getData('text/plain') || draggedCrewKey;
         if (!key) return;
 
-        const record = state.templates.find((item) => `${item.scope}:${item.id}` === key);
+        const record = state.crews.find((item) => `${item.scope}:${item.id}` === key);
         if (!record) return;
 
         const rawGroup = section.dataset.dropGroup!;
@@ -347,7 +419,7 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
         if (currentGroup === targetGroup) return;
 
         void (async () => {
-          if (actions.moveTemplateGroup && !(await actions.moveTemplateGroup(record, targetGroup))) return;
+          if (actions.moveCrewGroup && !(await actions.moveCrewGroup(record, targetGroup))) return;
           record.group = targetGroup;
           record.config.template.group = targetGroup;
           if (state.current && `${state.current.scope}:${state.current.id}` === key) {
@@ -359,23 +431,23 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
           if (state.collapsedGroups?.includes(collapseKey)) {
             state.collapsedGroups = state.collapsedGroups.filter((g) => g !== collapseKey);
           }
-          renderTemplateList();
+          renderCrewList();
         })();
       });
     }
   }
 
-  function renderRow(item: TemplateRecord): string {
+  function renderRow(item: CrewRecord): string {
     const isSelected = state.current?.id === item.id && state.current.scope === item.scope;
     const canDelete = Boolean(item.path && item.scope !== 'builtin');
     const key = `${escapeHtml(item.scope)}:${escapeHtml(item.id)}`;
-    return `<div class="list-row${isSelected ? ' selected' : ''}" data-template="${key}" draggable="true">` +
-      `<button type="button" class="list-row-select" data-select="${key}">` +
+    return `<div class="list-row${isSelected ? ' selected' : ''}" data-crew="${key}" draggable="true">` +
+      `<button type="button" class="list-row-select" data-select-crew="${key}">` +
         `<span class="list-row-name">${escapeHtml(item.name)}</span>` +
         `<small>${escapeHtml(item.scope)}</small>` +
       `</button>` +
       (canDelete
-        ? `<button type="button" class="list-row-delete" data-delete-template="${key}" aria-label="Delete template ${escapeHtml(item.name)}" title="Delete template">` +
+        ? `<button type="button" class="list-row-delete" data-delete-crew="${key}" aria-label="Delete crew ${escapeHtml(item.name)}" title="Delete crew">` +
             `<svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M5.5 4.5V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5M6.5 7v4.5M9.5 7v4.5M4 4.5l.7 8.4a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9l.7-8.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>` +
           `</button>`
         : '') +
@@ -423,12 +495,12 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
 
   function renderCanvas(): void {
     if (!state.current) {
-      world.innerHTML = '<div class="canvas-empty">No template selected.</div>';
+      world.innerHTML = '<div class="canvas-empty">No crew selected.</div>';
       applyViewport();
       return;
     }
     const nodes = nodeLayout(state.current);
-    world.innerHTML = `<svg class="edges" aria-hidden="true"></svg>${nodes.map((node) => `<button type="button" class="crew-node ${node.type}${state.selected?.id === node.id ? ' selected' : ''}" data-node="${escapeHtml(node.id)}" style="transform: translate(${node.x}px, ${node.y}px)"><span class="node-kind">${escapeHtml(node.type)}</span><strong>${escapeHtml(node.data.alias || node.id)}</strong><small>${escapeHtml(node.type === 'manager' ? (node.data as ManagerConfig).host : adapterValue(state, node.data))}</small><code>${escapeHtml(node.data.model || 'host default')}</code></button>`).join('')}`;
+    world.innerHTML = `<svg class="edges" aria-hidden="true"></svg>${nodes.map((node) => `<button type="button" class="crew-node ${node.type}${state.selected?.id === node.id ? ' selected' : ''}" data-node="${escapeHtml(node.id)}" style="transform: translate(${node.x}px, ${node.y}px)"><span class="node-kind">${escapeHtml(node.type)}</span><strong>${escapeHtml(node.data.alias || node.id)}</strong><small>${escapeHtml(node.type === 'boss' ? (node.data as BossInformation).host : adapterValue(state, node.data))}</small><code>${escapeHtml(node.data.model || 'host default')}</code></button>`).join('')}`;
     renderEdges(nodes);
     for (const button of world.querySelectorAll<HTMLButtonElement>('[data-node]')) {
       const node = nodes.find((item) => item.id === button.dataset.node);
@@ -465,13 +537,13 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
   function renderInspector(): void {
     clearInspectorControls();
     const data = selectedData(state);
-    if (!data) { inspector.innerHTML = '<div class="empty">Select a host or worker node.</div>'; return; }
-    const worker = state.selected?.type === 'worker' ? data as WorkerConfig : null;
+    if (!data) { inspector.innerHTML = '<div class="empty">Select a boss or member node.</div>'; return; }
+    const member = state.selected?.type === 'member' ? data as MemberConfig : null;
     inspector.innerHTML = `<form class="inspector-form" onsubmit="return false">
       <label>Alias<input class="input" data-field="alias" value="${escapeHtml(data.alias ?? '')}"></label>
       <div class="field-label"><span>Adapter / host</span><div id="adapter-combobox"></div></div>
       <div class="field-label"><span>Model</span><div class="field-row"><div id="model-combobox"></div><button id="refresh-models" type="button" class="secondary-button">Refresh</button></div><p id="model-status" class="field-note">Current text LLMs for the selected adapter.</p></div>
-      ${worker ? `<fieldset><legend>Roles</legend><div class="check-grid">${state.roles.map((role) => `<label><input data-role="${escapeHtml(role)}" type="checkbox"${checked(worker.roles.includes(role))}> ${escapeHtml(role)}</label>`).join('')}</div></fieldset><fieldset><legend>Capabilities</legend><div class="check-grid">${state.capabilities.map((capability) => `<label><input data-capability="${escapeHtml(capability)}" type="checkbox"${checked(worker.capabilities.includes(capability))}> ${escapeHtml(capability)}</label>`).join('')}</div></fieldset><label class="toggle"><input data-field="network" type="checkbox"${checked(worker.requires_network ?? false)}> Requires network</label><label class="toggle"><input data-field="credentials" type="checkbox"${checked(worker.requires_credentials ?? false)}> Requires credentials</label><button id="delete-worker" type="button" class="danger-button">Delete worker</button>` : ''}
+      ${member ? `<fieldset><legend>Roles</legend><div class="check-grid">${state.roles.map((role) => `<label><input data-role="${escapeHtml(role)}" type="checkbox"${checked(member.roles.includes(role))}> ${escapeHtml(role)}</label>`).join('')}</div></fieldset><fieldset><legend>Capabilities</legend><div class="check-grid">${state.capabilities.map((capability) => `<label><input data-capability="${escapeHtml(capability)}" type="checkbox"${checked(member.capabilities.includes(capability))}> ${escapeHtml(capability)}</label>`).join('')}</div></fieldset><label class="toggle"><input data-field="network" type="checkbox"${checked(member.requires_network ?? false)}> Requires network</label><label class="toggle"><input data-field="credentials" type="checkbox"${checked(member.requires_credentials ?? false)}> Requires credentials</label><button id="delete-member" type="button" class="danger-button">Delete member</button>` : ''}
     </form>`;
 
     const currentAdapter = adapterValue(state, data);
@@ -490,12 +562,12 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
     void loadCatalog(currentAdapter, model, status);
     byId('refresh-models').addEventListener('click', () => void loadCatalog(adapterValue(state, data), model, status, true));
     inspector.querySelector<HTMLInputElement>('[data-field="alias"]')?.addEventListener('input', (event) => { data.alias = (event.target as HTMLInputElement).value; renderCanvas(); });
-    if (!worker) return;
-    for (const input of inspector.querySelectorAll<HTMLInputElement>('[data-role]')) input.addEventListener('change', () => toggle(worker.roles, input.dataset.role as string, input.checked));
-    for (const input of inspector.querySelectorAll<HTMLInputElement>('[data-capability]')) input.addEventListener('change', () => toggle(worker.capabilities, input.dataset.capability as string, input.checked));
-    inspector.querySelector<HTMLInputElement>('[data-field="network"]')?.addEventListener('change', (event) => { worker.requires_network = (event.target as HTMLInputElement).checked; });
-    inspector.querySelector<HTMLInputElement>('[data-field="credentials"]')?.addEventListener('change', (event) => { worker.requires_credentials = (event.target as HTMLInputElement).checked; });
-    inspector.querySelector('#delete-worker')?.addEventListener('click', actions.deleteSelected);
+    if (!member) return;
+    for (const input of inspector.querySelectorAll<HTMLInputElement>('[data-role]')) input.addEventListener('change', () => toggle(member.roles, input.dataset.role as string, input.checked));
+    for (const input of inspector.querySelectorAll<HTMLInputElement>('[data-capability]')) input.addEventListener('change', () => toggle(member.capabilities, input.dataset.capability as string, input.checked));
+    inspector.querySelector<HTMLInputElement>('[data-field="network"]')?.addEventListener('change', (event) => { member.requires_network = (event.target as HTMLInputElement).checked; });
+    inspector.querySelector<HTMLInputElement>('[data-field="credentials"]')?.addEventListener('change', (event) => { member.requires_credentials = (event.target as HTMLInputElement).checked; });
+    inspector.querySelector('#delete-member')?.addEventListener('click', actions.deleteSelected);
   }
 
   canvas.addEventListener('pointerdown', (event) => {
@@ -529,25 +601,25 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
     resizeObserver.observe(canvas);
   }
 
-  search.addEventListener('input', () => { state.search = search.value; renderTemplateList(); });
-  templateName.addEventListener('input', () => {
+  search.addEventListener('input', () => { state.search = search.value; renderCrewList(); });
+  crewName.addEventListener('input', () => {
     if (!state.current) return;
-    state.current.config.template.name = templateName.value;
-    title.textContent = templateName.value || 'Untitled template';
+    state.current.config.template.name = crewName.value;
+    title.textContent = crewName.value || 'Untitled crew';
   });
-  templateId.addEventListener('input', () => { if (state.current) state.current.config.template.id = templateId.value; });
-  templateGroup.addEventListener('change', () => {
+  crewId.addEventListener('input', () => { if (state.current) state.current.config.template.id = crewId.value; });
+  crewGroup.addEventListener('change', () => {
     if (!state.current) return;
-    const groupVal = templateGroup.value || undefined;
+    const groupVal = crewGroup.value || undefined;
     state.current.group = groupVal;
     state.current.config.template.group = groupVal;
-    renderTemplateList();
+    renderCrewList();
   });
-  byId('new-template').addEventListener('click', actions.newTemplate);
+  byId('new-crew').addEventListener('click', actions.newCrew);
   byId('new-group')?.addEventListener('click', () => { actions.newGroup?.(); });
-  byId('add-worker').addEventListener('click', actions.addWorker);
-  saveTemplate.addEventListener('click', actions.saveTemplate);
-  deleteTemplate.addEventListener('click', actions.deleteTemplate);
+  byId('add-member').addEventListener('click', actions.addMemberInternal);
+  saveCrew.addEventListener('click', actions.saveCrew);
+  deleteCrew.addEventListener('click', () => actions.deleteCrew());
   byId('fit-graph').addEventListener('click', () => {
     if (!state.current) return;
     state.viewport = fitViewport(nodeLayout(state.current), { width: canvas.clientWidth, height: canvas.clientHeight });
@@ -557,7 +629,7 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
 
   return (): void => {
     search.value = state.search;
-    renderTemplateList();
+    renderCrewList();
     renderMetadata();
     renderCanvas();
     renderInspector();

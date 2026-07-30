@@ -3,7 +3,7 @@ import test from 'node:test';
 import { comboboxMarkup, comboboxOpeningQuery, filterOptions } from '../../dist/ui/assets/components/combobox.js';
 import { infoButtonMarkup } from '../../dist/ui/assets/components/info.js';
 import { resizeSidebarWidth } from '../../dist/ui/assets/components/sidebar-resizer.js';
-import { templateTableMarkup } from '../../dist/ui/assets/templates.js';
+import { crewTableMarkup } from '../../dist/ui/assets/templates.js';
 import { applyTheme, mountThemeToggle, resolveInitialTheme } from '../../dist/ui/assets/theme.js';
 
 const options = [
@@ -48,7 +48,7 @@ test('template table exposes delete only for writable templates', () => {
     { id: 'default', name: 'Default', description: '', scope: 'builtin', config: { workers: [] } },
     { id: 'team', name: 'Team', description: '', scope: 'workspace', path: '/tmp/team.toml', config: { workers: [] } },
   ];
-  const html = templateTableMarkup(records);
+  const html = crewTableMarkup(records);
   assert.match(html, /data-delete="workspace:team"/u);
   assert.doesNotMatch(html, /data-delete="builtin:default"/u);
 });

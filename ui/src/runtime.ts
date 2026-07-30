@@ -46,7 +46,7 @@ function detailMarkup(detail: RunDetail, history: boolean): string {
     </div>
     ${history ? '<p class="field-note">Archived runs are read-only.</p>' : controls(detail)}
     <h4>Current status</h4><p>${escapeHtml(detail.run.terminal_summary || 'Run is progressing through durable task state.')}</p>
-    <h4>Tasks</h4><div class="task-list">${tasks.length ? tasks.map((task) => `<div class="task-row"><span class="badge">${escapeHtml(task.status)}</span><span><strong>${escapeHtml(task.title)}</strong><small>${escapeHtml(task.id)} · ${escapeHtml(task.role)}</small></span><code>${escapeHtml(task.assigned_worker || 'unassigned')}</code></div>`).join('') : '<p>None</p>'}</div>
+    <h4>Tasks</h4><div class="task-list">${tasks.length ? tasks.map((task) => `<div class="task-row"><span class="badge">${escapeHtml(task.status)}</span><span><strong>${escapeHtml(task.title)}</strong><small>${escapeHtml(task.id)} · ${escapeHtml(task.role)}</small></span><code>${escapeHtml(task.assigned_member || 'unassigned')}</code></div>`).join('') : '<p>None</p>'}</div>
     <h4>Events</h4><div class="event-list">${detail.events.length ? [...detail.events].reverse().map((event) => `<div><code>#${event.sequence}</code><span>${escapeHtml(event.kind)}</span><small>${escapeHtml(new Date(event.timestamp).toLocaleString())}</small></div>`).join('') : '<p>None</p>'}</div>
     <h4>Durable files</h4><div class="file-list">${detail.files.length ? detail.files.map((file) => `<code>${escapeHtml(file)}</code>`).join('') : '<span>None</span>'}</div>`;
 }

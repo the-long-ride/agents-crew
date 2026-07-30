@@ -6,23 +6,23 @@ import { mountInfoPopovers } from './components/info.js';
 import { mountSidebarResizers } from './components/sidebar-resizer.js';
 import { byId } from './dom.js';
 import { resetViewport } from './graph/viewport.js';
-import { addWorker, normalizeTemplate, removeWorker, savePayload } from './model.js';
+import { addMember, normalizeCrew, removeMember, savePayload } from './model.js';
 import { renderRunView } from './runtime.js';
-import { renderTemplates } from './templates.js';
+import { renderAllCrews } from './templates.js';
 import { mountThemeToggle } from './theme.js';
 import type {
   AppState,
   BootstrapResponse,
+  MemberConfig,
+  CrewRecord,
   ModelCatalogResponse,
   RunDetail,
   RunSummary,
-  TemplateRecord,
   ViewName,
-  WorkerConfig,
 } from './types.js';
 
 const state: AppState = {
-  templates: [],
+  crews: [],
   runs: [],
   historyRuns: [],
   roles: [],
@@ -43,7 +43,7 @@ const state: AppState = {
   collapsedGroups: [],
 };
 
-const GROUPS_STORAGE_KEY = 'agents-crew-template-groups';
+const GROUPS_STORAGE_KEY = 'agents-crew-crew-groups';
 
 function readStoredGroups(): string[] {
   try {
@@ -67,8 +67,8 @@ function toast(message: string): void {
   toastTimer = window.setTimeout(() => node.classList.remove('show'), 2800);
 }
 
-function selectTemplate(record: TemplateRecord): void {
-  state.current = normalizeTemplate(record);
+function selectCrew(record: CrewRecord): void {
+  state.current = normalizeCrew(record);
   state.selected = null;
   state.viewport = resetViewport();
   render();
@@ -79,10 +79,10 @@ function setView(view: ViewName): void {
   render();
 }
 
-function newTemplate(): void {
-  const source = state.templates.find((item) => item.id === 'default') ?? state.templates[0];
-  if (!source) { toast('No source template available'); return; }
-  const next = normalizeTemplate(source);
+function newCrew(): void {
+  const source = state.crews.find((item) => item.id === 'default') ?? state.crews[0];
+  if (!source) { toast('No source crew available'); return; }
+  const next = normalizeCrew(source);
   const id = `crew-${Date.now().toString(36)}`;
   next.id = id;
   next.name = 'New crew';
@@ -99,7 +99,7 @@ function newTemplate(): void {
 async function newGroup(): Promise<void> {
   const groupName = await promptDialog({
     title: 'New Group',
-    message: 'Enter group name for organizing templates:',
+    message: 'Enter group name for organizing crews:',
     placeholder: 'e.g. Workflows, Development, Testing',
   });
   if (!groupName) return;
@@ -112,11 +112,11 @@ async function newGroup(): Promise<void> {
 }
 
 function deleteGroup(groupName: string): void {
-  const count = state.templates.filter((t) => (t.config.template?.group || t.group) === groupName).length
-    + (state.current && !state.templates.some((t) => t.id === state.current?.id && t.scope === state.current?.scope)
+  const count = state.crews.filter((t) => (t.config.template?.group || t.group) === groupName).length
+    + (state.current && !state.crews.some((t) => t.id === state.current?.id && t.scope === state.current?.scope)
       && (state.current.config.template?.group || state.current.group) === groupName ? 1 : 0);
   if (count > 0) {
-    toast(`Cannot delete group "${groupName}" because it contains ${count} template(s)`);
+    toast(`Cannot delete group "${groupName}" because it contains ${count} crew(s)`);
     return;
   }
   state.groups = (state.groups || []).filter((g) => g !== groupName);
@@ -126,31 +126,31 @@ function deleteGroup(groupName: string): void {
   render();
 }
 
-function addWorkerToCurrent(): void {
+function addMemberToCurrent(): void {
   if (!state.current) return;
-  state.current = addWorker(state.current);
+  state.current = addMember(state.current);
   render();
 }
 
 function deleteSelected(): void {
-  if (!state.current || state.selected?.type !== 'worker') return;
-  state.current = removeWorker(state.current, state.selected.id);
+  if (!state.current || state.selected?.type !== 'member') return;
+  state.current = removeMember(state.current, state.selected.id);
   state.selected = null;
   render();
 }
 
 
-function workerAdapter(worker: WorkerConfig): string {
-  return worker.adapter ?? worker.provider ?? worker.host ?? worker.kind;
+function memberAdapter(member: MemberConfig): string {
+  return member.adapter ?? member.provider ?? member.host ?? member.kind;
 }
 
-async function validateCurrentModels(record: TemplateRecord): Promise<string | undefined> {
+async function validateCurrentModels(record: CrewRecord): Promise<string | undefined> {
   const entries = [
-    { label: 'Manager', adapter: record.config.manager.host, model: record.config.manager.model },
-    ...record.config.workers.map((worker) => ({
-      label: worker.alias || worker.id,
-      adapter: workerAdapter(worker),
-      model: worker.model,
+    { label: 'Boss', adapter: record.config.manager.host, model: record.config.manager.model },
+    ...record.config.workers.map((member) => ({
+      label: member.alias || member.id,
+      adapter: memberAdapter(member),
+      model: member.model,
     })),
   ];
   for (const entry of entries) {
@@ -164,21 +164,21 @@ async function validateCurrentModels(record: TemplateRecord): Promise<string | u
   return undefined;
 }
 
-async function saveCurrent(): Promise<void> {
+async function saveCrew(): Promise<void> {
   if (!state.current) return;
   const metadata = state.current.config.template;
   metadata.name = metadata.name.trim();
   metadata.id = metadata.id.trim();
-  if (!metadata.name) { toast('Template name is required'); return; }
+  if (!metadata.name) { toast('Crew name is required'); return; }
   if (!/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u.test(metadata.id)) {
-    toast('Template ID must be a lowercase slug');
+    toast('Crew ID must be a lowercase slug');
     return;
   }
   const previous = { id: state.current.id, scope: state.current.scope, path: state.current.path };
   try {
     const invalidModel = await validateCurrentModels(state.current);
     if (invalidModel) { toast(invalidModel); return; }
-    const saved = await requestJson<TemplateRecord>(`/api/templates/${encodeURIComponent(metadata.id)}`, {
+    const saved = await requestJson<CrewRecord>(`/api/templates/${encodeURIComponent(metadata.id)}`, {
       method: 'PUT', body: JSON.stringify(savePayload(state.current, state.saveScope)),
     });
     let cleanupFailed = false;
@@ -187,51 +187,51 @@ async function saveCurrent(): Promise<void> {
         await requestJson(`/api/templates/${encodeURIComponent(previous.id)}?scope=${encodeURIComponent(previous.scope)}`, { method: 'DELETE' });
       } catch { cleanupFailed = true; }
     }
-    state.templates = await requestJson<TemplateRecord[]>('/api/templates');
-    state.current = normalizeTemplate(saved);
+    state.crews = await requestJson<CrewRecord[]>('/api/templates');
+    state.current = normalizeCrew(saved);
     state.selected = null;
-    toast(cleanupFailed ? 'Template saved; old template could not be removed' : 'Template saved');
+    toast(cleanupFailed ? 'Crew saved; old crew could not be removed' : 'Crew saved');
     render();
   } catch (error) { toast(error instanceof Error ? error.message : String(error)); }
 }
 
-async function deleteTemplate(record: TemplateRecord | null = state.current): Promise<void> {
+async function deleteCrew(record: CrewRecord | null = state.current): Promise<void> {
   if (!record || record.scope === 'builtin' || !record.path) return;
   const confirmed = await confirmDialog({
-    title: 'Delete template',
-    message: `Are you sure you want to delete template "${record.name}" (${record.scope})? This action cannot be undone.`,
+    title: 'Delete crew',
+    message: `Are you sure you want to delete crew "${record.name}" (${record.scope})? This action cannot be undone.`,
     confirmText: 'Delete',
     variant: 'danger',
   });
   if (!confirmed) return;
   try {
     await requestJson(`/api/templates/${encodeURIComponent(record.id)}?scope=${encodeURIComponent(record.scope)}`, { method: 'DELETE' });
-    state.templates = await requestJson<TemplateRecord[]>('/api/templates');
+    state.crews = await requestJson<CrewRecord[]>('/api/templates');
     if (state.current?.id === record.id && state.current.scope === record.scope) {
-      const replacement = state.templates.find((item) => item.id === record.id) ?? state.templates[0];
-      state.current = replacement ? normalizeTemplate(replacement) : null;
+      const replacement = state.crews.find((item) => item.id === record.id) ?? state.crews[0];
+      state.current = replacement ? normalizeCrew(replacement) : null;
       state.selected = null;
       state.viewport = resetViewport();
     }
-    toast('Template deleted');
+    toast('Crew deleted');
     render();
   } catch (error) { toast(error instanceof Error ? error.message : String(error)); }
 }
 
-async function moveTemplateGroup(record: TemplateRecord, group: string | undefined): Promise<boolean> {
+async function moveCrewGroup(record: CrewRecord, group: string | undefined): Promise<boolean> {
   if (record.scope === 'builtin' || !record.path) {
-    toast('Built-in templates cannot be reassigned');
+    toast('Built-in crews cannot be reassigned');
     return false;
   }
   const config = structuredClone(record.config);
   config.template.group = group;
   try {
-    await requestJson<TemplateRecord>(`/api/templates/${encodeURIComponent(record.id)}`, {
+    await requestJson<CrewRecord>(`/api/templates/${encodeURIComponent(record.id)}`, {
       method: 'PUT', body: JSON.stringify({ scope: record.scope, config }),
     });
-    state.templates = await requestJson<TemplateRecord[]>('/api/templates');
+    state.crews = await requestJson<CrewRecord[]>('/api/templates');
     if (state.current?.id === record.id && state.current.scope === record.scope) {
-      state.current = normalizeTemplate(state.templates.find((item) => item.id === record.id && item.scope === record.scope) ?? record);
+      state.current = normalizeCrew(state.crews.find((item) => item.id === record.id && item.scope === record.scope) ?? record);
     }
     render();
     return true;
@@ -239,6 +239,62 @@ async function moveTemplateGroup(record: TemplateRecord, group: string | undefin
     toast(error instanceof Error ? error.message : String(error));
     return false;
   }
+}
+
+async function renameCrew(record: CrewRecord, newName: string): Promise<boolean> {
+  if (record.scope === 'builtin' || !record.path) {
+    toast('Built-in crews cannot be renamed');
+    return false;
+  }
+  try {
+    const config = structuredClone(record.config);
+    config.template.name = newName;
+    await requestJson<CrewRecord>(`/api/templates/${encodeURIComponent(record.id)}`, {
+      method: 'PUT', body: JSON.stringify({ scope: record.scope, config }),
+    });
+    state.crews = await requestJson<CrewRecord[]>('/api/templates');
+    if (state.current?.id === record.id && state.current.scope === record.scope) {
+      state.current = normalizeCrew(state.crews.find((item) => item.id === record.id && item.scope === record.scope) ?? record);
+    }
+    render();
+    return true;
+  } catch (error) {
+    toast(error instanceof Error ? error.message : String(error));
+    return false;
+  }
+}
+
+async function renameGroup(oldName: string, newName: string): Promise<boolean> {
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed === oldName) return false;
+  if ((state.groups || []).includes(trimmed)) { toast(`Group "${trimmed}" already exists`); return false; }
+  for (const record of state.crews) {
+    const g = record.config.template?.group || record.group;
+    if (g === oldName && record.scope !== 'builtin' && record.path) {
+      const config = structuredClone(record.config);
+      config.template.group = trimmed;
+      await requestJson(`/api/templates/${encodeURIComponent(record.id)}`, {
+        method: 'PUT', body: JSON.stringify({ scope: record.scope, config }),
+      });
+    }
+  }
+  state.crews = await requestJson<CrewRecord[]>('/api/templates');
+  state.groups = (state.groups || []).map((g) => (g === oldName ? trimmed : g));
+  storeGroups();
+  state.collapsedGroups = (state.collapsedGroups || []).map((g) => (g === oldName ? trimmed : g));
+  for (const record of state.crews) {
+    if ((record.config.template?.group || record.group) === oldName) {
+      record.group = trimmed;
+      record.config.template.group = trimmed;
+    }
+  }
+  if (state.current && (state.current.config.template?.group || state.current.group) === oldName) {
+    state.current.group = trimmed;
+    state.current.config.template.group = trimmed;
+  }
+  toast(`Group renamed to "${trimmed}"`);
+  render();
+  return true;
 }
 
 const modelRequests = new Map<string, Promise<ModelCatalogResponse>>();
@@ -296,14 +352,16 @@ async function controlRun(action: 'pause' | 'resume' | 'cancel'): Promise<void> 
 }
 
 const renderBuilderView = mountBuilder(state, {
-  selectTemplate,
-  newTemplate,
+  selectCrew,
+  newCrew,
   newGroup: () => void newGroup(),
   deleteGroup,
-  addWorker: addWorkerToCurrent,
-  saveTemplate: () => void saveCurrent(),
-  deleteTemplate: (record) => void deleteTemplate(record),
-  moveTemplateGroup,
+  renameGroup,
+  addMemberInternal: addMemberToCurrent,
+  saveCrew: () => void saveCrew(),
+  deleteCrew: (record) => void deleteCrew(record),
+  renameCrew,
+  moveCrewGroup,
   deleteSelected,
   loadModels,
 });
@@ -341,9 +399,9 @@ function render(): void {
   }
   scopeControl.setValue(state.saveScope);
   renderBuilderView();
-  renderTemplates(state, {
-    open(record) { selectTemplate(record); setView('builder'); },
-    delete(record) { void deleteTemplate(record); },
+  renderAllCrews(state, {
+    open(record) { selectCrew(record); setView('builder'); },
+    delete(record) { void deleteCrew(record); },
   });
   renderRunViews();
 }
@@ -351,8 +409,8 @@ function render(): void {
 async function initialize(): Promise<void> {
   try {
     const bootstrap = await requestJson<BootstrapResponse>('/api/bootstrap');
-    state.templates = bootstrap.templates;
-    for (const item of bootstrap.templates) {
+    state.crews = bootstrap.crews;
+    for (const item of bootstrap.crews) {
       const g = item.config?.template?.group || item.group;
       if (g && !state.groups.includes(g)) state.groups.push(g);
     }
@@ -362,7 +420,7 @@ async function initialize(): Promise<void> {
     state.roles = bootstrap.roles;
     state.capabilities = bootstrap.capabilities;
     state.models = bootstrap.model_presets;
-    if (bootstrap.templates[0]) state.current = normalizeTemplate(bootstrap.templates[0]);
+    if (bootstrap.crews[0]) state.current = normalizeCrew(bootstrap.crews[0]);
     render();
   } catch (error) { toast(error instanceof Error ? error.message : String(error)); }
 }
