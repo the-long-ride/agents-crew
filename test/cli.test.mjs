@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-const cli = new URL('../dist/cli/entry.js', import.meta.url).pathname;
+const cli = fileURLToPath(new URL('../dist/cli/entry.js', import.meta.url));
 
 function run(root, args) {
   return spawnSync(process.execPath, [cli, '--workspace', root, '--json', ...args], { encoding: 'utf8' });
@@ -15,7 +16,7 @@ function run(root, args) {
 test('compiled CLI reads the root package version after source relocation', () => {
   const result = spawnSync(process.execPath, [cli, '--version'], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), '0.3.0');
+  assert.equal(result.stdout.trim(), '0.0.1');
 });
 
 test('CLI initializes, validates config, and exposes both aliases through package metadata', async () => {

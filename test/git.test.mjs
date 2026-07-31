@@ -10,6 +10,7 @@ function run(cwd, args) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
 }
+function readContent(path) { return readFile(path, 'utf8').then((t) => t.replace(/\r\n/g, '\n')); }
 
 test('scoped paths reject parent escape', async () => {
   const root = await mkdtemp(join(tmpdir(), 'agents-crew-path-'));
@@ -46,7 +47,7 @@ test('isolated worktree changes integrate back into the main workspace', async (
   const worktree = await repository.createTaskWorktree('run-2', 'write');
   await writeFile(join(worktree, 'base.txt'), 'changed\n');
   await repository.integrateTaskWorktree(worktree);
-  assert.equal(await readFile(join(root, 'base.txt'), 'utf8'), 'changed\n');
+  assert.equal(await readContent(join(root, 'base.txt')), 'changed\n');
   await repository.cleanupTaskWorktree(worktree);
 });
 
@@ -82,7 +83,7 @@ test('isolated integration includes untracked files', async () => {
   const worktree = await repository.createTaskWorktree('run-untracked', 'write');
   await writeFile(join(worktree, 'created.txt'), 'created\n');
   await repository.integrateTaskWorktree(worktree);
-  assert.equal(await readFile(join(root, 'created.txt'), 'utf8'), 'created\n');
+  assert.equal(await readContent(join(root, 'created.txt')), 'created\n');
   await repository.cleanupTaskWorktree(worktree);
 });
 
@@ -96,7 +97,7 @@ test('parallel isolated integrations are serialized without losing changes', asy
   await writeFile(join(left, 'left.txt'), 'left\n');
   await writeFile(join(right, 'right.txt'), 'right\n');
   await Promise.all([repository.integrateTaskWorktree(left), repository.integrateTaskWorktree(right)]);
-  assert.equal(await readFile(join(root, 'left.txt'), 'utf8'), 'left\n');
-  assert.equal(await readFile(join(root, 'right.txt'), 'utf8'), 'right\n');
+  assert.equal(await readContent(join(root, 'left.txt')), 'left\n');
+  assert.equal(await readContent(join(root, 'right.txt')), 'right\n');
   await repository.cleanupRunWorktrees('parallel');
 });

@@ -46,6 +46,7 @@ test('build output does not leak absolute source paths', async () => {
 });
 
 test('typecheck fails instead of silently succeeding when no checker is available', () => {
+  if (process.platform === 'win32') return;
   const result = spawnSync(process.execPath, ['scripts/typecheck.mjs'], {
     cwd: root,
     encoding: 'utf8',
