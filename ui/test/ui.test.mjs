@@ -125,8 +125,9 @@ test('UI bootstrap and template routes restore the control-plane data model', as
   const bootstrapResponse = await fetch(`${base}/api/bootstrap`, { headers });
   assert.equal(bootstrapResponse.status, 200);
   const bootstrap = await bootstrapResponse.json();
-  assert.equal(bootstrap.templates[0].id, 'default');
-  assert.equal(bootstrap.templates[0].scope, 'builtin');
+  const defaultCrew = bootstrap.crews.find((item) => item.id === 'default');
+  assert.ok(defaultCrew);
+  assert.equal(defaultCrew.scope, 'builtin');
   assert.deepEqual(bootstrap.roles, ['planner', 'researcher', 'implementer', 'tester', 'reviewer', 'integrator']);
   assert.ok(bootstrap.capabilities.includes('write'));
   assert.ok(bootstrap.model_presets.includes('configured-by-user'));

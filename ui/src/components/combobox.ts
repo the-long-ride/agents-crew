@@ -1,4 +1,5 @@
 import { escapeHtml } from '../dom.js';
+import { comboCheckIcon, comboChevronIcon } from './icons.js';
 
 export interface ComboboxOption {
   value: string;
@@ -38,8 +39,8 @@ export function comboboxOpeningQuery(options: ComboboxOption[], value: string, d
   return exact ? '' : value;
 }
 
-const chevronSvg = '<svg class="combo-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5"></path></svg>';
-const checkSvg = '<svg class="combo-check" viewBox="0 0 20 20" aria-hidden="true"><path d="m4.5 10.5 3.2 3.2 7.8-8"></path></svg>';
+const chevronSvg = comboChevronIcon;
+const checkSvg = comboCheckIcon;
 
 function optionMarkup(option: ComboboxOption, index: number, selected = false): string {
   return `<button type="button" class="combo-option" role="option" data-combo-index="${index}" aria-selected="${selected}">

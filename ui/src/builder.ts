@@ -1,5 +1,6 @@
 import { renderCrewList } from './builder/crew-list.js';
 import { mountCombobox, type ComboboxController, type ComboboxOption } from './components/combobox.js';
+import { edgesIcon } from './components/icons.js';
 import { byId, checked, escapeHtml } from './dom.js';
 import { fitViewport, panViewport, resetViewport, resizeViewport, zoomViewportAt } from './graph/viewport.js';
 import { edgeLayout, nodeLayout } from './model.js';
@@ -16,7 +17,9 @@ import type {
 export interface BuilderActions {
   selectCrew(record: CrewRecord): void;
   newCrew(): void;
+  newCrewInGroup?(groupName: string): void;
   newGroup?: () => void;
+  newSubGroup?(parentName: string): void;
   deleteGroup?: (groupName: string) => void;
   renameGroup?(oldName: string, newName: string): Promise<boolean>;
   addMemberInternal(): void;
@@ -209,6 +212,29 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
     });
   }
 
+  function nodeMarkup(node: CanvasNode, state: AppState): string {
+    const isBoss = node.type === 'boss';
+    const data = node.data;
+    const name = escapeHtml(data.alias || `${isBoss ? 'Manager' : 'Member'}`);
+    const badge = `<span class="node-kind-badge">${escapeHtml(node.type)}</span>`;
+    const adapter = escapeHtml(isBoss ? (data as BossInformation).host : adapterValue(state, data));
+    const model = escapeHtml(data.model || 'host default');
+    let details = '';
+    if (!isBoss) {
+      const member = data as MemberConfig;
+      const roles = member.roles?.length ? `Roles: ${member.roles.slice(0, 3).map(escapeHtml).join(', ')}${member.roles.length > 3 ? '...' : ''}` : '';
+      const caps = member.capabilities?.length ? member.capabilities.slice(0, 3).map(escapeHtml).join(', ') + (member.capabilities.length > 3 ? '...' : '') : '';
+      const flags = [
+        member.requires_network ? 'network' : '',
+        member.requires_credentials ? 'credentials' : '',
+      ].filter(Boolean).join(', ');
+      details = `${roles ? `<div class="node-roles">${roles}</div>` : ''}${caps ? `<div class="node-caps">${caps}</div>` : ''}${flags ? `<div class="node-flags">${flags}</div>` : ''}`;
+    }
+    return `<span class="node-header"><strong>${name}</strong>${badge}</span>` +
+      `<div class="node-detail"><span class="node-adapter">${adapter}</span><span class="node-model">${model}</span></div>` +
+      details;
+  }
+
   function renderCanvas(): void {
     if (!state.current) {
       world.innerHTML = '<div class="canvas-empty">No crew selected.</div>';
@@ -216,7 +242,7 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
       return;
     }
     const nodes = nodeLayout(state.current);
-    world.innerHTML = `<svg class="edges" aria-hidden="true"></svg>${nodes.map((node) => `<button type="button" class="crew-node ${node.type}${state.selected?.id === node.id ? ' selected' : ''}" data-node="${escapeHtml(node.id)}" style="transform: translate(${node.x}px, ${node.y}px)"><span class="node-kind">${escapeHtml(node.type)}</span><strong>${escapeHtml(node.data.alias || node.id)}</strong><small>${escapeHtml(node.type === 'boss' ? (node.data as BossInformation).host : adapterValue(state, node.data))}</small><code>${escapeHtml(node.data.model || 'host default')}</code></button>`).join('')}`;
+    world.innerHTML = `${edgesIcon}${nodes.map((node) => `<button type="button" class="crew-node ${node.type}${state.selected?.id === node.id ? ' selected' : ''}" data-node="${escapeHtml(node.id)}" style="transform: translate(${node.x}px, ${node.y}px)">${nodeMarkup(node, state)}</button>`).join('')}`;
     renderEdges(nodes);
     for (const button of world.querySelectorAll<HTMLButtonElement>('[data-node]')) {
       const node = nodes.find((item) => item.id === button.dataset.node);
@@ -253,13 +279,13 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
   function renderInspector(): void {
     clearInspectorControls();
     const data = selectedData(state);
-    if (!data) { inspector.innerHTML = '<div class="empty">Select a boss or member node.</div>'; return; }
+    if (!data) { inspector.innerHTML = '<div class="empty">Select a boss or member node.</div>'; byId('delete-member').hidden = true; return; }
     const member = state.selected?.type === 'member' ? data as MemberConfig : null;
     inspector.innerHTML = `<form class="inspector-form" onsubmit="return false">
       <label>Alias<input class="input" data-field="alias" value="${escapeHtml(data.alias ?? '')}"></label>
       <div class="field-label"><span>Adapter / host</span><div id="adapter-combobox"></div></div>
       <div class="field-label"><span>Model</span><div class="field-row"><div id="model-combobox"></div><button id="refresh-models" type="button" class="secondary-button">Refresh</button></div><p id="model-status" class="field-note">Current text LLMs for the selected adapter.</p></div>
-      ${member ? `<fieldset><legend>Roles</legend><div class="check-grid">${state.roles.map((role) => `<label><input data-role="${escapeHtml(role)}" type="checkbox"${checked(member.roles.includes(role))}> ${escapeHtml(role)}</label>`).join('')}</div></fieldset><fieldset><legend>Capabilities</legend><div class="check-grid">${state.capabilities.map((capability) => `<label><input data-capability="${escapeHtml(capability)}" type="checkbox"${checked(member.capabilities.includes(capability))}> ${escapeHtml(capability)}</label>`).join('')}</div></fieldset><label class="toggle"><input data-field="network" type="checkbox"${checked(member.requires_network ?? false)}> Requires network</label><label class="toggle"><input data-field="credentials" type="checkbox"${checked(member.requires_credentials ?? false)}> Requires credentials</label><button id="delete-member" type="button" class="danger-button">Delete member</button>` : ''}
+      ${member ? `<fieldset><legend>Roles</legend><div class="check-grid">${state.roles.map((role) => `<label><input data-role="${escapeHtml(role)}" type="checkbox"${checked(member.roles.includes(role))}> ${escapeHtml(role)}</label>`).join('')}</div></fieldset><fieldset><legend>Capabilities</legend><div class="check-grid">${state.capabilities.map((capability) => `<label><input data-capability="${escapeHtml(capability)}" type="checkbox"${checked(member.capabilities.includes(capability))}> ${escapeHtml(capability)}</label>`).join('')}</div></fieldset><label class="toggle"><input data-field="network" type="checkbox"${checked(member.requires_network ?? false)}> Requires network</label><label class="toggle"><input data-field="credentials" type="checkbox"${checked(member.requires_credentials ?? false)}> Requires credentials</label>` : ''}
     </form>`;
 
     const currentAdapter = adapterValue(state, data);
@@ -278,12 +304,12 @@ export function mountBuilder(state: AppState, actions: BuilderActions): () => vo
     void loadCatalog(currentAdapter, model, status);
     byId('refresh-models').addEventListener('click', () => void loadCatalog(adapterValue(state, data), model, status, true));
     inspector.querySelector<HTMLInputElement>('[data-field="alias"]')?.addEventListener('input', (event) => { data.alias = (event.target as HTMLInputElement).value; renderCanvas(); });
-    if (!member) return;
+    if (!member) { byId('delete-member').hidden = true; return; }
     for (const input of inspector.querySelectorAll<HTMLInputElement>('[data-role]')) input.addEventListener('change', () => toggle(member.roles, input.dataset.role as string, input.checked));
     for (const input of inspector.querySelectorAll<HTMLInputElement>('[data-capability]')) input.addEventListener('change', () => toggle(member.capabilities, input.dataset.capability as string, input.checked));
     inspector.querySelector<HTMLInputElement>('[data-field="network"]')?.addEventListener('change', (event) => { member.requires_network = (event.target as HTMLInputElement).checked; });
     inspector.querySelector<HTMLInputElement>('[data-field="credentials"]')?.addEventListener('change', (event) => { member.requires_credentials = (event.target as HTMLInputElement).checked; });
-    inspector.querySelector('#delete-member')?.addEventListener('click', actions.deleteSelected);
+    byId('delete-member').hidden = false;
   }
 
   canvas.addEventListener('pointerdown', (event) => {
@@ -336,6 +362,15 @@ renderCrewList(state, list, actions, renderMetadata);
   byId('add-member').addEventListener('click', actions.addMemberInternal);
   saveCrew.addEventListener('click', actions.saveCrew);
   deleteCrew.addEventListener('click', () => actions.deleteCrew());
+  byId('delete-member').addEventListener('click', actions.deleteSelected);
+  canvas.addEventListener('keydown', (event) => {
+    if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+    if (!state.selected || state.selected.type !== 'member') return;
+    const tag = (event.target as HTMLElement | null)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    event.preventDefault();
+    actions.deleteSelected();
+  });
   byId('fit-graph').addEventListener('click', () => {
     if (!state.current) return;
     state.viewport = fitViewport(nodeLayout(state.current), { width: canvas.clientWidth, height: canvas.clientHeight });

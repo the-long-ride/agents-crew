@@ -1,6 +1,6 @@
 export type CrewScope = 'builtin' | 'global' | 'workspace';
 export type WritableCrewScope = Exclude<CrewScope, 'builtin'>;
-export type ViewName = 'builder' | 'templates' | 'runtime' | 'history';
+export type ViewName = 'builder' | 'crews' | 'runtime' | 'history';
 export type NodeKind = 'boss' | 'member';
 
 export interface Position { x: number; y: number }
@@ -107,6 +107,7 @@ export interface RunDetail {
 }
 export interface BootstrapResponse {
   crews: CrewRecord[];
+  groups?: string[];
   runs: RunSummary[];
   history_runs: RunSummary[];
   roles: string[];

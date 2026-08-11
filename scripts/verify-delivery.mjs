@@ -12,7 +12,7 @@ const packageJson = JSON.parse(read('package.json'));
 assert.equal(packageJson.name, '@agents-crew/cli');
 assert.equal(packageJson.type, 'module');
 assert.equal(packageJson.engines.node, '>=22.13.0');
-assert.match(packageJson.packageManager, /^pnpm@10\./u);
+assert.match(packageJson.packageManager, /^pnpm@(10|11)\./u);
 assert.equal(packageJson.bin.crew, './dist/cli/entry.js');
 assert.equal(packageJson.bin['agents-crew'], './dist/cli/entry.js');
 assert.deepEqual(packageJson.dependencies ?? {}, {}, 'runtime dependencies are not allowed');

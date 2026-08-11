@@ -139,32 +139,36 @@ export const crewActions = (
   async function renameGroup(oldName: string, newName: string): Promise<boolean> {
     const trimmed = newName.trim();
     if (!trimmed || trimmed === oldName) return false;
-    if ((state.groups || []).includes(trimmed)) { toast(`Group "${trimmed}" already exists`); return false; }
+    const isSub = oldName.includes('/');
+    const parent = isSub ? oldName.slice(0, oldName.indexOf('/')) : '';
+    const finalName = isSub ? `${parent}/${trimmed}` : trimmed;
+    if (finalName === oldName) return false;
+    if ((state.groups || []).includes(finalName)) { toast(`Group "${finalName}" already exists`); return false; }
     for (const record of state.crews) {
       const g = record.config.template?.group || record.group;
       if (g === oldName && record.scope !== 'builtin' && record.path) {
         const config = structuredClone(record.config);
-        config.template.group = trimmed;
+        config.template.group = finalName;
         await requestJson(`/api/templates/${encodeURIComponent(record.id)}`, {
           method: 'PUT', body: JSON.stringify({ scope: record.scope, config }),
         });
       }
     }
     state.crews = await requestJson<CrewRecord[]>('/api/templates');
-    state.groups = (state.groups || []).map((g) => (g === oldName ? trimmed : g));
+    state.groups = (state.groups || []).map((g) => (g === oldName ? finalName : g));
     storeGroups();
-    state.collapsedGroups = (state.collapsedGroups || []).map((g) => (g === oldName ? trimmed : g));
+    state.collapsedGroups = (state.collapsedGroups || []).map((g) => (g === oldName ? finalName : g));
     for (const record of state.crews) {
       if ((record.config.template?.group || record.group) === oldName) {
-        record.group = trimmed;
-        record.config.template.group = trimmed;
+        record.group = finalName;
+        record.config.template.group = finalName;
       }
     }
     if (state.current && (state.current.config.template?.group || state.current.group) === oldName) {
-      state.current.group = trimmed;
-      state.current.config.template.group = trimmed;
+      state.current.group = finalName;
+      state.current.config.template.group = finalName;
     }
-    toast(`Group renamed to "${trimmed}"`);
+    toast(`Group renamed to "${isSub ? trimmed : finalName}"`);
     render();
     return true;
   }

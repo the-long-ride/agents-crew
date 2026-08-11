@@ -28,9 +28,16 @@ export function safeStaticPath(root: string, requested: string): string {
 
 export function createUiServer(workspace: string, token: string): Server {
   const staticRoot = assetPath('dist', 'ui');
-  return createServer(async (request, response) => {
+  let server: Server;
+  server = createServer(async (request, response) => {
     try {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+      if (request.method === 'POST' && url.pathname === '/api/shutdown') {
+        if (!apiTokenMatches(request, token)) { json(response, 401, { error: 'unauthorized' }); return; }
+        json(response, 200, { shutdown: true });
+        server.close(() => process.exit(0));
+        return;
+      }
       if (await handleApiRequest(workspace, request, response, url, token)) return;
       const requested = url.pathname === '/' ? '/index.html' : url.pathname;
       const path = safeStaticPath(staticRoot, requested);
@@ -47,6 +54,7 @@ export function createUiServer(workspace: string, token: string): Server {
       });
     }
   });
+  return server;
 }
 
 export function openBrowser(url: string, launch = spawn): void {

@@ -32,10 +32,14 @@ test('built UI contains Builder, Crews, Runtime, and History modules', async () 
   assert.match(html, /data-sidebar-resizer="right"/u);
   assert.match(html, /id="delete-crew"/u);
   assert.ok(html.indexOf('id="save-crew"') < html.indexOf('id="add-member"'), 'save must be left of add member');
-  assert.match(html, /data-theme="light"/u);
-  assert.match(html, /data-theme="dark"/u);
+  assert.match(html, /id="theme-toggle"/u);
+  assert.match(html, /aria-label="Toggle between dark and light theme"/u);
   assert.match(html, /<select id="crew-group"/iu);
-  for (const asset of ['app.js', 'builder.js', 'templates.js', 'runtime.js', 'model.js', 'api.js', 'theme.js', 'components/combobox.js', 'components/info.js', 'graph/viewport.js']) {
+  assert.match(html, /class="scope-switch"/u);
+  assert.match(html, /data-scope="global"/u);
+  assert.match(html, /data-scope="workspace"/u);
+  assert.match(html, /data-tooltip=/u);
+  for (const asset of ['app.js', 'builder.js', 'templates.js', 'runtime.js', 'model.js', 'api.js', 'theme.js', 'components/combobox.js', 'components/info.js', 'components/tooltip.js', 'graph/viewport.js']) {
     const source = await readFile(new URL(`../dist/ui/assets/${asset}`, import.meta.url), 'utf8');
     assert.ok(source.length > 0, `empty UI asset ${asset}`);
   }
@@ -43,6 +47,19 @@ test('built UI contains Builder, Crews, Runtime, and History modules', async () 
 test('build output does not leak absolute source paths', async () => {
   const compiled = await readFile(new URL('../dist/domain/core.js', import.meta.url), 'utf8');
   assert.doesNotMatch(compiled, /sourceMappingURL|file:\/\//u);
+});
+
+test('every nav data-view target has a matching view section and app view list', async () => {
+  const html = await readFile(new URL('../dist/ui/index.html', import.meta.url), 'utf8');
+  const navViews = [...html.matchAll(/data-view="([a-z]+)"/gu)].map((m) => m[1]);
+  assert.ok(navViews.length > 0, 'no data-view nav buttons found');
+  for (const view of navViews) {
+    assert.match(html, new RegExp(`id="${view}-view"`, 'u'), `missing #${view}-view section for data-view="${view}"`);
+  }
+  const appSource = await readFile(new URL('../dist/ui/assets/app.js', import.meta.url), 'utf8');
+  const viewListMatch = appSource.match(/\[\s*'builder',\s*'([a-z]+)',\s*'runtime',\s*'history'\s*\]/u);
+  assert.ok(viewListMatch, 'app.js view list not found');
+  assert.equal(viewListMatch[1], 'crews', "app.js view list must use 'crews' (not 'templates')");
 });
 
 test('typecheck fails instead of silently succeeding when no checker is available', () => {
@@ -60,7 +77,7 @@ test('repository uses pnpm for development while preserving npm installation', a
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   const ci = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
   const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8');
-  assert.match(packageJson.packageManager, /^pnpm@10\./u);
+  assert.match(packageJson.packageManager, /^pnpm@(10|11)\./u);
   assert.match(ci, /pnpm install --frozen-lockfile/u);
   assert.match(ci, /pnpm run check/u);
   assert.match(readme, /npm install --global @agents-crew\/cli/u);

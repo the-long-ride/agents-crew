@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { readdir } from 'node:fs/promises';
+import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import { validateConfig } from '../config/config.js';
@@ -47,6 +47,27 @@ export async function readBody(request: IncomingMessage): Promise<Record<string,
 
 export function apiTokenMatches(request: IncomingMessage, token: string): boolean {
   return request.headers['x-agents-crew-token'] === token;
+}
+
+function groupsPath(workspace: string): string {
+  return join(workspace, '.agents-crew', 'groups.json');
+}
+
+async function readGroups(workspace: string): Promise<string[]> {
+  const file = groupsPath(workspace);
+  if (!existsSync(file)) return [];
+  try {
+    const raw = await readFile(file, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((g): g is string => typeof g === 'string' && g.length > 0);
+  } catch { return []; }
+}
+
+async function writeGroups(workspace: string, groups: string[]): Promise<void> {
+  const dir = join(workspace, '.agents-crew');
+  if (!existsSync(dir)) await mkdir(dir, { recursive: true });
+  await writeFile(groupsPath(workspace), `${JSON.stringify(groups)}\n`, 'utf8');
 }
 
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
@@ -182,8 +203,16 @@ export async function handleApiRequest(
   if (!url.pathname.startsWith('/api/')) return false;
   if (!apiTokenMatches(request, token)) { json(response, 401, { error: 'unauthorized' }); return true; }
   if (request.method === 'GET' && url.pathname === '/api/bootstrap') {
+    const crews = await new TemplateRegistry(workspace).list();
+    const savedGroups = await readGroups(workspace);
+    const derivedGroups = new Set<string>(savedGroups);
+    for (const item of crews) {
+      const g = item.config?.template?.group;
+      if (g && !derivedGroups.has(g)) derivedGroups.add(g);
+    }
     json(response, 200, {
-      templates: await new TemplateRegistry(workspace).list(),
+      crews,
+      groups: [...derivedGroups].sort((a, b) => a.localeCompare(b)),
       runs: await listRunSummaries(workspace, 'active'),
       history_runs: await listRunSummaries(workspace, 'history'),
       roles,
@@ -195,6 +224,21 @@ export async function handleApiRequest(
   if (request.method === 'GET' && url.pathname === '/api/templates') {
     json(response, 200, await new TemplateRegistry(workspace).list());
     return true;
+  }
+  if (url.pathname === '/api/groups') {
+    if (request.method === 'GET') {
+      json(response, 200, { groups: await readGroups(workspace) });
+      return true;
+    }
+    if (request.method === 'PUT') {
+      const body = await readBody(request);
+      if (!Array.isArray(body.groups)) throw new UiHttpError(400, 'groups must be an array');
+      const groups = body.groups.filter((g): g is string => typeof g === 'string' && g.length > 0);
+      await writeGroups(workspace, groups);
+      json(response, 200, { groups });
+      return true;
+    }
+    throw new UiHttpError(405, 'method not allowed');
   }
   if (request.method === 'GET' && url.pathname === '/api/models') {
     const host = url.searchParams.get('host') ?? '';

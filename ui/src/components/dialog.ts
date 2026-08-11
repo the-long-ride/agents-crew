@@ -1,4 +1,5 @@
 import { escapeHtml } from '../dom.js';
+import { alertIcon, listIcon, trashIcon } from './icons.js';
 
 export interface ConfirmDialogOptions {
   title: string;
@@ -25,16 +26,12 @@ export function confirmDialog(options: ConfirmDialogOptions): Promise<boolean> {
     const confirmLabel = options.confirmText ?? (isDanger ? 'Delete' : 'Confirm');
     const cancelLabel = options.cancelText ?? 'Cancel';
 
-    const confirmIcon = isDanger
-      ? '<svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M5.5 4.5V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5M6.5 7v4.5M9.5 7v4.5M4 4.5l.7 8.4a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9l.7-8.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
-      : '';
+    const confirmIcon = isDanger ? trashIcon : '';
 
     dialog.innerHTML = `
       <div class="dialog-header">
         <div class="dialog-icon-wrapper ${isDanger ? 'danger' : ''}">
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zm0 3v4.5M8 11.5h.01" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-          </svg>
+          ${alertIcon}
         </div>
         <h3 id="confirm-dialog-title" class="dialog-title">${escapeHtml(options.title)}</h3>
       </div>
@@ -121,9 +118,7 @@ export function promptDialog(options: PromptDialogOptions): Promise<string | nul
     dialog.innerHTML = `
       <div class="dialog-header">
         <div class="dialog-icon-wrapper">
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-          </svg>
+          ${listIcon}
         </div>
         <h3 class="dialog-title">${escapeHtml(options.title)}</h3>
       </div>
