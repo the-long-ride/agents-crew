@@ -37,8 +37,9 @@ test('combobox markup is accessible and contains no native select or datalist', 
 
 
 test('sidebar widths clamp between practical minimum and 500px', () => {
-  assert.equal(resizeSidebarWidth(250, 80, 'left'), 330);
+  assert.equal(resizeSidebarWidth(280, 50, 'left'), 330);
   assert.equal(resizeSidebarWidth(490, 80, 'left'), 500);
+  assert.equal(resizeSidebarWidth(280, -50, 'left'), 260);
   assert.equal(resizeSidebarWidth(330, 80, 'right'), 250);
   assert.equal(resizeSidebarWidth(220, 80, 'right'), 200);
 });

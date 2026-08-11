@@ -13,17 +13,22 @@
     <header class="topbar">
       <div class="brand"><span class="signal"></span> AGENTS CREW</div>
       <nav aria-label="Primary">
-        <button type="button" class="nav-button active" data-view="builder">Builder</button>
-        <button type="button" class="nav-button" data-view="crews">Crews</button>
-        <button type="button" class="nav-button" data-view="runtime">Runtime</button>
-        <button type="button" class="nav-button" data-view="history">History</button>
+        <button type="button" class="nav-button active" data-view="builder" data-tooltip="Design and arrange crew members" data-tooltip-position="bottom">Builder</button>
+        <button type="button" class="nav-button" data-view="crews" data-tooltip="Compare all crew definitions" data-tooltip-position="bottom">Crews</button>
+        <button type="button" class="nav-button" data-view="runtime" data-tooltip="Inspect active runs and task progress" data-tooltip-position="bottom">Runtime</button>
+        <button type="button" class="nav-button" data-view="history" data-tooltip="Review archived and completed runs" data-tooltip-position="bottom">History</button>
       </nav>
       <div class="top-actions">
+        <button id="shutdown-button" type="button" class="icon-text-button" aria-label="Shut down server and close tab" data-tooltip="Stop the server and close this tab" data-tooltip-position="bottom">Off</button>
         <div class="theme-switch" aria-label="Color theme">
-          <button type="button" class="icon-text-button" data-theme="light" aria-label="Use light theme">Light</button>
-          <button type="button" class="icon-text-button" data-theme="dark" aria-label="Use dark theme">Dark</button>
+          <button id="theme-toggle" type="button" class="icon-only-button" aria-label="Toggle between dark and light theme" aria-pressed="true" data-tooltip="Toggle dark or light theme" data-tooltip-position="bottom">
+            <svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 3a5 5 0 0 0 0 10V3z" fill="currentColor"/></svg>
+          </button>
         </div>
-        <div id="save-scope-control" class="scope-control" aria-label="Save scope"></div>
+        <div id="save-scope-control" class="scope-switch" aria-label="Scope" role="group">
+          <button type="button" class="scope-switch-option active" data-scope="global" data-tooltip="Show global crews · new crews save globally" data-tooltip-position="bottom">Global</button>
+          <button type="button" class="scope-switch-option" data-scope="workspace" data-tooltip="Show workspace crews · new crews save to this repo" data-tooltip-position="bottom">Workspace</button>
+        </div>
       </div>
     </header>
 
@@ -34,20 +39,24 @@
 <p class="eyebrow">Crew library</p>
             <button type="button" class="info-button" aria-label="About Crew library" data-info-title="Crew library" data-info-text="Search crew definitions">i</button>
           </div>
-          <input id="crew-search" class="input" placeholder="Search crews" aria-label="Search crews">
-          <div class="crew-actions-row">
-            <button id="new-crew" type="button" class="secondary-button icon-button">+ New crew</button>
-            <button id="new-group" type="button" class="secondary-button icon-button">+ Group</button>
+          <div class="crew-search-row">
+            <input id="crew-search" class="input" placeholder="Search crews" aria-label="Search crews">
+            <button id="new-crew" type="button" class="secondary-button icon-only-button" aria-label="New crew" data-tooltip="Create a new crew" data-tooltip-position="bottom">
+              <svg class="button-icon" viewBox="0 0 475 512.06" fill="currentColor" aria-hidden="true"><path fill-rule="nonzero" d="M254.89 221.93v52.33h168.66v89.48h-29.37v-60.11H254.89v54.74h-33.63v-54.74H80.82v60.11H51.45v-89.48h169.81v-52.33h33.63zm134.46 244.72 10.81 28.37 5.43-15.47-2.67-2.91c-2-2.92-1.31-6.24 2.4-6.84 1.25-.2 2.66-.08 4.02-.08 1.44 0 3.05-.13 4.42.17 3.44.76 3.8 4.1 2.08 6.75l-2.66 2.91 5.43 15.47 9.77-28.37c7.05 6.34 26.03 7.62 33.8 11.95 10.76 6.03 10.47 22.68 12.82 33.46H342.73c2.34-10.68 2.1-27.53 12.82-33.46 9.55-5.31 25.98-4.91 33.8-11.95zm-1.99-19.02c-.98.02-1.78-.11-2.65-.59-1.16-.64-1.97-1.74-2.53-2.98-1.16-2.61-2.09-9.48.85-11.45l-.55-.35-.06-.76c-.11-1.38-.14-3.05-.17-4.81-.11-6.45-.24-14.27-5.57-15.84l-2.29-.67 1.51-1.82c4.31-5.18 8.8-9.71 13.34-13.19 5.13-3.94 10.35-6.56 15.45-7.31 5.25-.78 10.34.39 15.03 4.09 1.39 1.09 2.73 2.41 4.03 3.94 5.01.47 9.11 3.1 12.04 6.85 1.74 2.24 3.07 4.89 3.91 7.7.84 2.81 1.21 5.79 1.05 8.73-.28 5.26-2.25 10.4-6.24 14.15.7.02 1.36.18 1.94.48 2.23 1.16 2.3 3.68 1.71 5.78-.57 1.77-1.3 3.81-2 5.53-.84 2.31-2.07 2.75-4.44 2.5-5.34 23.35-37.61 24.15-44.36.02zm-168.8 19.02 10.81 28.37 5.42-15.47-2.66-2.91c-2-2.92-1.31-6.24 2.4-6.84 1.25-.2 2.66-.08 4.02-.08 1.44 0 3.05-.13 4.41.17 3.45.76 3.81 4.1 2.09 6.75l-2.66 2.91 5.43 15.47 9.77-28.37c7.05 6.34 26.03 7.62 33.8 11.95 10.76 6.03 10.47 22.68 12.82 33.46H171.94c2.34-10.68 2.1-27.53 12.82-33.46 9.55-5.31 25.98-4.91 33.8-11.95zm-1.99-19.02c-.98.02-1.78-.11-2.65-.59-1.16-.64-1.97-1.74-2.53-2.98-1.16-2.61-2.09-9.48.85-11.45l-.55-.35-.06-.76c-.11-1.38-.14-3.05-.17-4.81-.11-6.45-.24-14.27-5.57-15.84l-2.29-.67 1.51-1.82c4.3-5.18 8.8-9.71 13.34-13.19 5.13-3.94 10.35-6.56 15.45-7.31 5.25-.78 10.34.39 15.03 4.09 1.39 1.09 2.73 2.41 4.03 3.94 5.01.47 9.11 3.1 12.03 6.85 1.75 2.24 3.08 4.89 3.92 7.7.84 2.81 1.21 5.79 1.05 8.73-.28 5.26-2.26 10.4-6.24 14.15.7.02 1.36.18 1.94.48 2.22 1.16 2.3 3.68 1.71 5.78-.58 1.77-1.31 3.81-2 5.53-.84 2.31-2.07 2.75-4.44 2.5-5.34 23.35-37.62 24.15-44.36.02zM46.62 466.65l10.8 28.37 5.43-15.47-2.66-2.91c-2-2.92-1.31-6.24 2.4-6.84 1.25-.2 2.65-.08 4.02-.08 1.44 0 3.05-.13 4.41.17 3.44.76 3.8 4.1 2.09 6.75l-2.67 2.91 5.44 15.47 9.77-28.37c7.05 6.34 26.03 7.62 33.79 11.95 10.77 6.03 10.47 22.68 12.83 33.46H0c2.33-10.68 2.09-27.53 12.82-33.46 9.55-5.31 25.98-4.91 33.8-11.95zm-2-19.02c-.97.02-1.77-.11-2.64-.59-1.16-.64-1.98-1.74-2.53-2.98-1.17-2.61-2.09-9.48.84-11.45l-.54-.35-.07-.76c-.11-1.38-.14-3.05-.16-4.81-.11-6.45-.25-14.27-5.58-15.84l-2.28-.67 1.5-1.82c4.31-5.18 8.81-9.71 13.34-13.19 5.14-3.94 10.36-6.56 15.46-7.31 5.25-.78 10.33.39 15.03 4.09 1.39 1.09 2.73 2.41 4.03 3.94 5.01.47 9.11 3.1 12.03 6.85 1.74 2.24 3.07 4.89 3.92 7.7a26 26 0 0 1 1.05 8.73c-.29 5.26-2.26 10.4-6.24 14.15.7.02 1.35.18 1.94.48 2.22 1.16 2.29 3.68 1.71 5.78-.58 1.77-1.31 3.81-2 5.53-.84 2.31-2.07 2.75-4.45 2.5-5.34 23.35-37.61 24.15-44.36.02zm159.51-312.5 18.48 48.52 9.28-26.45-4.56-4.97c-3.42-5.01-2.24-10.69 4.1-11.71 2.43-.39 12.15-.35 14.43.16 5.89 1.29 6.5 7 3.57 11.55l-4.56 4.97 9.29 26.45 16.72-48.52c12.05 10.86 44.51 13.04 57.79 20.45 18.4 10.3 17.9 31.06 21.92 49.48H124.4c4-18.26 3.59-39.35 21.93-49.48 16.32-9.1 44.43-8.41 57.8-20.45zm-3.41-32.52c-1.68.03-3.04-.18-4.53-1.01-1.98-1.09-3.37-2.98-4.32-5.11-1.99-4.46-3.58-16.2 1.44-19.56l-.93-.61-.11-1.3c-.19-2.36-.24-5.22-.29-8.21-.18-11.04-.41-24.42-9.53-27.1l-3.91-1.15 2.58-3.11c7.36-8.86 15.06-16.61 22.81-22.56 8.78-6.73 17.71-11.21 26.43-12.5 8.98-1.33 17.67.68 25.7 7 2.38 1.86 4.68 4.11 6.9 6.73 8.56.82 15.57 5.31 20.57 11.72 2.98 3.83 5.26 8.36 6.7 13.17 1.44 4.8 2.06 9.9 1.8 14.93-.49 8.99-3.86 17.78-10.68 24.19 1.2.04 2.33.31 3.32.83 3.8 1.98 3.92 6.28 2.93 9.89-.99 3.01-2.24 6.51-3.42 9.45-1.44 3.96-3.54 4.7-7.61 4.27-9.13 39.94-64.32 41.3-75.85.04z"/></svg>
+            </button>
+            <button id="new-group" type="button" class="secondary-button icon-only-button" aria-label="New group" data-tooltip="Create a new group" data-tooltip-position="bottom">
+              <svg class="button-icon" viewBox="0 0 122.88 95.19" fill="currentColor" aria-hidden="true"><path d="M2.49,20.74h4.5v-9.86c0-1.37,1.11-2.48,2.48-2.48h4.41V2.48c0-1.37,1.11-2.48,2.48-2.48h40.26c1.37,0,2.48,1.11,2.48,2.48V8.4h54.29c1.37,0,2.48,1.11,2.48,2.48v9.86h4.53c1.37,0,2.48,1.11,2.48,2.48c0,0.18-0.02,0.36-0.06,0.52l-8.68,63.8c-0.28,2.08-1.19,4.01-2.59,5.41c-1.38,1.38-3.21,2.24-5.36,2.24H14.7c-2.16,0-4.03-0.87-5.43-2.26c-1.41-1.41-2.31-3.35-2.54-5.46L0.01,23.48c-0.14-1.36,0.85-2.58,2.21-2.72C2.32,20.75,2.4,20.75,2.49,20.74L2.49,20.74L2.49,20.74L2.49,20.74L2.49,20.74z M78.33,64.63c0.44-0.39,0.68-0.91,0.64-1.64c-0.09-1.65-1.38-3.19-1.84-4.75c-0.76-1.22-1.04-3.15-0.2-4.44c0.33-0.51,0.19-2.38,0.19-3.08c0-7.11,13.11-7.11,13.11,0c0,0.71-0.14,2.57,0.19,3.08c0.84,1.29,0.57,3.22-0.2,4.44c-0.46,1.56-1.76,3.12-1.84,4.77c-0.05,1,0.44,1.59,1.22,2.02c2.68,1.46,8.83,0.08,8.83,7.19H83.98C83.29,67.81,81.02,65.76,78.33,64.63L78.33,64.63z M42.47,75.23c0-9.2,8.01-7.36,11.42-9.28c0.97-0.55,1.57-1.31,1.5-2.58c-0.12-2.12-1.77-4.1-2.36-6.1c-0.98-1.57-1.33-4.05-0.26-5.7c0.43-0.66,0.25-3.05,0.25-3.96c0-9.14,16.84-9.14,16.84,0c0,0.91-0.18,3.3,0.25,3.96c1.08,1.66,0.73,4.13-0.26,5.7c-0.59,2.01-2.26,4.01-2.36,6.13c-0.06,1.28,0.57,2.04,1.57,2.59c3.45,1.88,11.35,0.11,11.35,9.24H42.47L42.47,75.23z M24.44,72.22c0-7.16,6.24-5.73,8.89-7.22c0.76-0.43,1.22-1.02,1.17-2.01c-0.09-1.65-1.38-3.19-1.84-4.75c-0.76-1.22-1.04-3.15-0.2-4.44c0.33-0.51,0.19-2.38,0.19-3.08c0-7.11,13.11-7.11,13.11,0c0,0.71-0.14,2.57,0.19,3.08c0.84,1.29,0.57,3.22-0.2,4.44c-0.46,1.56-1.76,3.12-1.84,4.77c-0.03,0.72,0.21,1.22,0.64,1.61c-2.69,1.13-4.95,3.19-5.65,7.6H24.44L24.44,72.22z M9.47,25.71H5.24l6.43,61.26c0.1,0.98,0.5,1.85,1.1,2.46c0.5,0.5,1.17,0.81,1.93,0.81h91.49c0.75,0,1.38-0.3,1.87-0.79c0.62-0.62,1.03-1.53,1.17-2.55l8.32-61.18L9.47,25.71L9.47,25.71L9.47,25.71L9.47,25.71z M11.95,13.37v7.36l98.96-1.05v-6.31H56.62c-1.37,0-2.48-1.11-2.48-2.48V4.97h-35.3v5.92c0,1.37-1.11,2.48-2.48,2.48H11.95L11.95,13.37L11.95,13.37L11.95,13.37z"/></svg>
+            </button>
           </div>
           <div id="crew-list" class="list"></div>
         </aside>
-        <div class="sidebar-resizer" data-sidebar-resizer="left" role="separator" aria-label="Resize crew sidebar" aria-orientation="vertical" aria-valuemin="200" aria-valuemax="500" aria-valuenow="250" tabindex="0"></div>
+        <div class="sidebar-resizer" data-sidebar-resizer="left" role="separator" aria-label="Resize crew sidebar" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="500" aria-valuenow="280" tabindex="0"></div>
 
         <section class="canvas-panel">
           <div class="canvas-toolbar">
             <div class="canvas-eyebrow">
               <p class="eyebrow">Crew canvas</p>
-              <h1 id="canvas-title" class="sr-only">No Crew</h1>
+              <h1 id="canvas-title">No Crew</h1>
             </div>
             <div class="canvas-metadata">
               <label>Crew name<input id="crew-name" class="input" placeholder="Crew name" aria-label="Crew name"></label>
@@ -60,13 +69,13 @@
             </div>
             <button type="button" class="info-button canvas-info" aria-label="About Crew canvas" data-info-title="Crew canvas" data-info-text="Edit crew metadata here, drag empty space to pan, use the mouse wheel to zoom, and drag nodes to arrange the crew.">i</button>
             <div class="canvas-actions">
-              <button id="delete-crew" type="button" class="danger-button icon-only-button" aria-label="Delete crew" title="Delete crew">
+              <button id="delete-crew" type="button" class="danger-button icon-only-button" aria-label="Delete crew" data-tooltip="Delete this crew" data-tooltip-position="bottom">
                 <svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M5.5 4.5V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5M6.5 7v4.5M9.5 7v4.5M4 4.5l.7 8.4a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9l.7-8.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
               </button>
-              <button id="save-crew" type="button" class="primary-button icon-only-button" aria-label="Save crew" title="Save crew">
+              <button id="save-crew" type="button" class="primary-button icon-only-button" aria-label="Save crew" data-tooltip="Save crew to disk" data-tooltip-position="bottom">
                 <svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h8l2.5 2.5v8.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1zM5 2.5v3.5h5.5V2.5M5.5 14.5v-4.5h5v4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
               </button>
-              <button id="add-member" type="button" class="secondary-button icon-only-button" aria-label="Add member" title="Add member">
+              <button id="add-member" type="button" class="secondary-button icon-only-button" aria-label="Add member" data-tooltip="Add a new member node" data-tooltip-position="bottom">
                 <svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
               </button>
             </div>
@@ -74,11 +83,11 @@
           <div id="crew-canvas" class="canvas" aria-label="Crew graph. Drag to pan and use mouse wheel to zoom." tabindex="0">
             <div class="canvas-controls" aria-label="Canvas zoom controls">
               <span id="zoom-level" class="zoom-level">100%</span>
-              <button id="fit-graph" type="button" class="secondary-button icon-button">
+              <button id="fit-graph" type="button" class="secondary-button icon-button" data-tooltip="Fit all nodes in view" data-tooltip-position="bottom">
                 <svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5V2h3M14 5V2h-3M2 11v3h3M14 11v3h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
                 <span>Fit</span>
               </button>
-              <button id="reset-zoom" type="button" class="secondary-button icon-button">
+              <button id="reset-zoom" type="button" class="secondary-button icon-button" data-tooltip="Reset zoom to 100%" data-tooltip-position="bottom">
                 <svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9M2.5 4v4.1h4.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
                 <span>Reset zoom</span>
               </button>
@@ -91,7 +100,12 @@
         <aside class="panel inspector-panel">
           <div class="section-heading compact">
             <p class="eyebrow">Inspector</p>
-            <button type="button" class="info-button" aria-label="About Inspector" data-info-title="Inspector" data-info-text="Edit the selected node's host, model, roles, capabilities, and execution requirements. Models are limited to current text LLMs available for the selected adapter.">i</button>
+            <div class="section-heading-actions">
+              <button type="button" class="info-button" aria-label="About Inspector" data-info-title="Inspector" data-info-text="Edit the selected node's host, model, roles, capabilities, and execution requirements. Models are limited to current text LLMs available for the selected adapter.">i</button>
+              <button id="delete-member" type="button" class="danger-button icon-only-button" aria-label="Delete selected member" data-tooltip="Delete selected member (or press Del)" data-tooltip-position="bottom" hidden>
+                <svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M5.5 4.5V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5M6.5 7v4.5M9.5 7v4.5M4 4.5l.7 8.4a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9l.7-8.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+              </button>
+            </div>
           </div>
           <div id="inspector"></div>
         </aside>
@@ -108,6 +122,13 @@
           </div>
         </div>
         <p class="lead">Workspace crews override matching global IDs. Built-in crews remain read-only.</p>
+        <div class="crews-controls">
+          <input id="crew-table-search" class="input" placeholder="Search by name or ID" aria-label="Search crews">
+          <select id="crew-table-filter" class="input" aria-label="Filter by group">
+            <option value="">All groups</option>
+          </select>
+          <span id="crew-table-count" class="crews-count"></span>
+        </div>
         <div id="crew-table" class="table-shell"></div>
       </section>
 
@@ -120,7 +141,7 @@
             </div>
             <h2>Runtime</h2>
           </div>
-          <button id="refresh-runs" type="button" class="secondary-button">Refresh</button>
+          <button id="refresh-runs" type="button" class="secondary-button" data-tooltip="Reload active runs" data-tooltip-position="bottom">Refresh</button>
         </div>
         <div class="runtime-layout">
           <div id="run-list" class="run-list"></div>
@@ -137,7 +158,7 @@
             </div>
             <h2>History</h2>
           </div>
-          <button id="refresh-history" type="button" class="secondary-button">Refresh</button>
+          <button id="refresh-history" type="button" class="secondary-button" data-tooltip="Reload archived runs" data-tooltip-position="bottom">Refresh</button>
         </div>
         <div class="runtime-layout">
           <div id="history-list" class="run-list"></div>

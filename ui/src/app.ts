@@ -1,10 +1,10 @@
 import { requestJson } from './api.js';
 import { mountBuilder } from './builder.js';
 import { crewActions } from './app/crew-actions.js';
-import { mountCombobox } from './components/combobox.js';
 import { promptDialog } from './components/dialog.js';
 import { mountInfoPopovers } from './components/info.js';
 import { mountSidebarResizers } from './components/sidebar-resizer.js';
+import { mountTooltips, rescanTooltips } from './components/tooltip.js';
 import { byId } from './dom.js';
 import { resetViewport } from './graph/viewport.js';
 import { addMember, normalizeCrew, removeMember } from './model.js';
@@ -55,6 +55,7 @@ function readStoredGroups(): string[] {
 
 function storeGroups(): void {
   try { window.localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(state.groups)); } catch { /* storage unavailable */ }
+  void requestJson('/api/groups', { method: 'PUT', body: JSON.stringify({ groups: state.groups }) }).catch(() => { /* server unavailable */ });
 }
 
 state.groups = readStoredGroups();
@@ -115,6 +116,19 @@ function newCrew(): void {
   setView('builder');
 }
 
+function newCrewInGroup(groupName: string): void {
+  newCrew();
+  if (state.current) {
+    state.current.group = groupName;
+    state.current.config.template.group = groupName;
+    if (!state.groups.includes(groupName)) {
+      state.groups.push(groupName);
+      storeGroups();
+    }
+    render();
+  }
+}
+
 async function newGroup(): Promise<void> {
   const groupName = await promptDialog({
     title: 'New Group',
@@ -130,17 +144,41 @@ async function newGroup(): Promise<void> {
   render();
 }
 
+async function newSubGroup(parentName: string): Promise<void> {
+  if (parentName === '__ungrouped__') return;
+  const child = await promptDialog({
+    title: 'New Sub-Group',
+    message: `Enter sub-group name under "${parentName}":`,
+    placeholder: 'e.g. Promotions, Reviews',
+  });
+  if (!child) return;
+  const fullName = `${parentName}/${child.trim()}`;
+  if (!state.groups.includes(fullName)) {
+    state.groups.push(fullName);
+    storeGroups();
+  }
+  toast(`Sub-group "${child.trim()}" created under "${parentName}"`);
+  render();
+}
+
 function deleteGroup(groupName: string): void {
-  const count = state.crews.filter((t) => (t.config.template?.group || t.group) === groupName).length
+  const isSub = groupName.includes('/');
+  const groupsToDelete = isSub
+    ? [groupName]
+    : [groupName, ...state.groups.filter((g) => g.startsWith(`${groupName}/`))];
+  const count = state.crews.filter((t) => {
+    const g = t.config.template?.group || t.group;
+    return g !== undefined && groupsToDelete.includes(g);
+  }).length
     + (state.current && !state.crews.some((t) => t.id === state.current?.id && t.scope === state.current?.scope)
-      && (state.current.config.template?.group || state.current.group) === groupName ? 1 : 0);
+      && groupsToDelete.includes(state.current.config.template?.group || state.current.group || '') ? 1 : 0);
   if (count > 0) {
     toast(`Cannot delete group "${groupName}" because it contains ${count} crew(s)`);
     return;
   }
-  state.groups = (state.groups || []).filter((g) => g !== groupName);
+  state.groups = (state.groups || []).filter((g) => !groupsToDelete.includes(g));
   storeGroups();
-  state.collapsedGroups = (state.collapsedGroups || []).filter((g) => g !== groupName);
+  state.collapsedGroups = (state.collapsedGroups || []).filter((g) => !groupsToDelete.includes(g) && !groupsToDelete.some((d) => g.startsWith(`${d}/`)));
   toast(`Group "${groupName}" deleted`);
   render();
 }
@@ -202,7 +240,9 @@ async function controlRun(action: 'pause' | 'resume' | 'cancel'): Promise<void> 
 const renderBuilderView = mountBuilder(state, {
   selectCrew,
   newCrew,
+  newCrewInGroup,
   newGroup: () => void newGroup(),
+  newSubGroup,
   deleteGroup,
   renameGroup,
   addMemberInternal: addMemberToCurrent,
@@ -226,41 +266,49 @@ function renderRunViews(): void {
   });
 }
 
-const scopeControl = mountCombobox(byId('save-scope-control'), {
-  id: 'save-scope', value: 'global', searchable: false, displayLabel: true,
-  options: [
-    { value: 'global', label: 'Global', description: 'Available in every workspace' },
-    { value: 'workspace', label: 'Workspace', description: 'Only this repository' },
-  ],
-  onChange(value) { state.saveScope = value === 'workspace' ? 'workspace' : 'global'; },
-});
+const scopeSwitch = byId<HTMLDivElement>('save-scope-control');
+const scopeButtons = scopeSwitch.querySelectorAll<HTMLButtonElement>('.scope-switch-option');
+function setScope(value: 'global' | 'workspace'): void {
+  state.saveScope = value;
+  for (const btn of scopeButtons) btn.classList.toggle('active', btn.dataset.scope === value);
+  renderBuilderView();
+}
+for (const btn of scopeButtons) {
+  btn.addEventListener('click', () => setScope(btn.dataset.scope === 'workspace' ? 'workspace' : 'global'));
+}
 mountThemeToggle();
+mountTooltips();
 mountInfoPopovers();
 mountSidebarResizers(byId('builder-view'));
 
 function render(): void {
-  for (const view of ['builder', 'templates', 'runtime', 'history'] as ViewName[]) {
+  for (const view of ['builder', 'crews', 'runtime', 'history'] as ViewName[]) {
     byId(`${view}-view`).hidden = state.view !== view;
   }
   for (const button of document.querySelectorAll<HTMLButtonElement>('[data-view]')) {
     button.classList.toggle('active', button.dataset.view === state.view);
   }
-  scopeControl.setValue(state.saveScope);
+  setScope(state.saveScope);
   renderBuilderView();
   renderAllCrews(state, {
     open(record) { selectCrew(record); setView('builder'); },
     delete(record) { void deleteCrew(record); },
   });
   renderRunViews();
+  rescanTooltips();
 }
 
 async function initialize(): Promise<void> {
   try {
     const bootstrap = await requestJson<BootstrapResponse>('/api/bootstrap');
     state.crews = bootstrap.crews;
+    const seen = new Set<string>();
+    for (const g of bootstrap.groups ?? []) {
+      if (g && !seen.has(g)) { seen.add(g); state.groups.push(g); }
+    }
     for (const item of bootstrap.crews) {
-      const g = item.config?.template?.group || item.group;
-      if (g && !state.groups.includes(g)) state.groups.push(g);
+      const g = item.config?.template?.group;
+      if (g && !seen.has(g)) { seen.add(g); state.groups.push(g); }
     }
     storeGroups();
     state.runs = bootstrap.runs;
@@ -278,5 +326,6 @@ for (const button of document.querySelectorAll<HTMLButtonElement>('[data-view]')
 }
 byId('refresh-runs').addEventListener('click', () => void refreshRuns());
 byId('refresh-history').addEventListener('click', () => void refreshRuns());
+byId('shutdown-button').addEventListener('click', () => { void requestJson<unknown>('/api/shutdown', { method: 'POST' }); window.close(); });
 render();
 void initialize();

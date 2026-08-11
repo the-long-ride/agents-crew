@@ -5,7 +5,8 @@ const maxSidebarWidth = 500;
 
 export function resizeSidebarWidth(startWidth: number, pointerDelta: number, side: SidebarSide): number {
   const direction = side === 'left' ? 1 : -1;
-  return Math.min(maxSidebarWidth, Math.max(minSidebarWidth, Math.round(startWidth + pointerDelta * direction)));
+  const minWidth = side === 'left' ? 260 : 200;
+  return Math.min(maxSidebarWidth, Math.max(minWidth, Math.round(startWidth + pointerDelta * direction)));
 }
 
 export function mountSidebarResizers(builder: HTMLElement): void {
