@@ -105,3 +105,12 @@ test('catalog model values follow adapter conventions and reject stale data', ()
   assert.equal(modelIsAvailable('opencode', '', catalog), true);
   assert.equal(modelIsAvailable('opencode', 'anthropic/claude-sonnet', { ...catalog, source: 'stale', stale: true }), false);
 });
+
+test('WebUI source exposes Connect as a first-class view and Runtime process region', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(new URL('../static/index.html', import.meta.url), 'utf8');
+  assert.match(html, /data-view="connect"[^>]*>Connect</u);
+  assert.match(html, /id="connect-view"/u);
+  assert.match(html, /id="process-list"/u);
+  assert.match(html, /Crew Processes/u);
+});

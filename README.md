@@ -2,6 +2,8 @@
 
 Agents Crew is a dependency-free TypeScript CLI for running a durable manager-and-workers AI agent loop across Codex, Claude Code, OpenCode, and Antigravity.
 
+![Agents Crew Web UI Builder](https://github.com/user-attachments/assets/uploaded_media_1786450708950.png)
+
 Only the manager host needs the plugin files. Workers can be native host agents, installed CLI tools, or read-only API models. The runtime owns task state, capability checks, approvals, retries, Git worktrees, verification evidence, and completion decisions.
 
 ## Requirements
@@ -82,7 +84,7 @@ crew manager step --run <run-id>
 crew manager submit --run <run-id> --action <action-id> --result <result.json>
 ```
 
-Add `--json` anywhere for machine-readable output. Add `--workspace <path>` anywhere to target another repository.
+Add `--json` anywhere for machine-readable output. JSON output never contains ANSI styling. Human output uses structured headings, indentation, status symbols, and ANSI color only when stdout/stderr is an interactive TTY; `NO_COLOR` disables color. Add `--workspace <path>` anywhere to target another repository.
 
 ## Manager loop
 
@@ -226,11 +228,12 @@ Worker results must follow `schemas/worker-result.schema.json` and include capab
 crew ui
 ```
 
-The UI binds only to `127.0.0.1`, serves bundled local assets, and requires a random per-launch API token embedded in the opened local URL. It has four views:
+The UI binds only to `127.0.0.1`, serves bundled local assets, and requires a random per-launch API token embedded in the opened local URL. It has five views:
 
 - **Builder** — compose a crew on a grab-to-pan, wheel-to-zoom graph with Fit and Reset controls. Edit hosts, models, roles, capabilities, network access, and credential requirements.
-- **Templates** — browse built-in, global, and workspace templates in a data table and open them in Builder.
-- **Runtime** — inspect and control active durable runs.
+- **Crews** — browse built-in, global, and workspace crew definitions in a data table and open them in Builder.
+- **Connect** — install, check, repair, or disconnect Agents Crew wiring in the current user's global host scope for Codex, Claude Code, OpenCode, and Antigravity. Ownership manifests prevent Connect or Repair from seizing unrelated files.
+- **Runtime** — inspect and control active durable runs plus Agents-Crew-managed worker subprocesses. Process controls provide safe Pause/Resume scheduling and managed Restart/Stop; Runtime never lists arbitrary operating-system processes.
 - **History** — inspect completed, cancelled, failed, and otherwise archived runs without active-run controls.
 
 Host/model fields use a searchable custom combobox with centered SVG controls. Model choices are loaded for the selected adapter from the Models.dev catalog and limited to active models with text input and text output. OpenCode can use catalog models from every provider; Codex, Claude Code, and Antigravity receive their supported provider sets. Fresh cache remains usable for six hours, while stale or unavailable catalogs expose no selectable model IDs.

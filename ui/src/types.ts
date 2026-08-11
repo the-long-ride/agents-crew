@@ -1,6 +1,6 @@
 export type CrewScope = 'builtin' | 'global' | 'workspace';
 export type WritableCrewScope = Exclude<CrewScope, 'builtin'>;
-export type ViewName = 'builder' | 'crews' | 'runtime' | 'history';
+export type ViewName = 'builder' | 'crews' | 'connect' | 'runtime' | 'history';
 export type NodeKind = 'boss' | 'member';
 
 export interface Position { x: number; y: number }
@@ -105,6 +105,29 @@ export interface RunDetail {
   pending_actions: unknown[];
   expired_actions: unknown[];
 }
+
+export interface ConnectionFileStatus { path: string; action: string; message: string }
+export interface ConnectionStatus {
+  host: string;
+  status: 'connected' | 'modified' | 'missing' | 'error';
+  files: ConnectionFileStatus[];
+  message?: string;
+}
+export interface ManagedProcess {
+  id: string;
+  worker_id: string;
+  host: string;
+  pid: number;
+  run_id: string;
+  task_id: string;
+  workspace: string;
+  started_at: string;
+  updated_at: string;
+  state: 'running' | 'pausing' | 'paused' | 'stopping' | 'exited' | 'failed';
+  exit_code?: number;
+  message?: string;
+}
+
 export interface BootstrapResponse {
   crews: CrewRecord[];
   groups?: string[];
@@ -120,6 +143,8 @@ export interface AppState {
   crews: CrewRecord[];
   runs: RunSummary[];
   historyRuns: RunSummary[];
+  connections: ConnectionStatus[];
+  processes: ManagedProcess[];
   roles: string[];
   capabilities: string[];
   models: string[];

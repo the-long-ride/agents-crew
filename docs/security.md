@@ -15,7 +15,9 @@ Key protections:
 - Native write results are checked against actual Git changes rather than worker-reported file lists.
 - Persisted run/action JSON and manager decisions are runtime-validated before use.
 - State/action and Git integration locks are PID-owned and recoverable after a crashed process.
-- Plugin manifests are runtime-validated and limited to exact host-generated paths before doctor, overwrite, or uninstall operations.
+- Workspace plugin manifests are runtime-validated and limited to exact host-generated paths before doctor, overwrite, or uninstall operations.
+- Global Connect ownership manifests are isolated under the user Agents Crew state directory; unowned host files are never overwritten, while modified generated files are preserved on disconnect unless Repair explicitly replaces an already owned path.
+- Runtime process control is limited to subprocesses registered by Agents Crew; the UI never enumerates or controls arbitrary operating-system processes.
 - Worker subprocesses keep only a minimal cross-platform baseline environment plus explicit allowlisted secrets.
 
 Do not disable runtime checks merely because a host prompt contains similar instructions.

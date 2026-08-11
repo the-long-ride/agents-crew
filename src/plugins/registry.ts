@@ -6,7 +6,7 @@ import type { Role } from '../domain/types.js';
 
 export const hosts = ['codex', 'claude-code', 'opencode', 'antigravity'] as const;
 export type Host = typeof hosts[number];
-const commands = [
+export const commands = [
   ['agents-crew', 'Start, resume, inspect, pause, or cancel a durable template run.'],
   ['crew-init', 'Create Agents Crew configuration and role files.'],
   ['crew-run', 'Run one goal through the complete managed crew loop.'],
@@ -20,10 +20,10 @@ const commands = [
   ['crew-doctor', 'Probe config, workers, credentials, plugins, and Git.'],
   ['crew-config', 'Show and validate configuration.'],
 ] as const;
-const generatedRoles: Role[] = ['planner', 'researcher', 'implementer', 'tester', 'reviewer', 'integrator'];
+export const generatedRoles: Role[] = ['planner', 'researcher', 'implementer', 'tester', 'reviewer', 'integrator'];
 
 function hash(content: string | Buffer): string { return createHash('sha256').update(content).digest('hex'); }
-function normalizeHost(value: string): Host {
+export function normalizeHost(value: string): Host {
   const host = value === 'claude' ? 'claude-code' : value;
   if (!hosts.includes(host as Host)) throw new Error(`unknown host: ${value}`);
   return host as Host;
@@ -54,7 +54,7 @@ async function rolePrompt(role: Role): Promise<string> {
   return readFile(path, 'utf8');
 }
 function canWrite(role: Role): boolean { return role === 'implementer' || role === 'integrator'; }
-async function roleContent(host: Host, role: Role): Promise<string> {
+export async function roleContent(host: Host, role: Role): Promise<string> {
   const name = `agents-crew-${role}`;
   let front = '';
   if (host === 'claude-code') front = `---\nname: ${name}\ndescription: Agents Crew ${role} role\ntools: ${canWrite(role) ? 'Read, Write, Edit, Bash' : 'Read, Bash'}\n---\n\n`;
@@ -62,7 +62,7 @@ async function roleContent(host: Host, role: Role): Promise<string> {
   if (host === 'antigravity') front = `---\nname: ${name}\ndescription: Agents Crew ${role} role\n---\n\n`;
   return `${front}${await rolePrompt(role)}\n\nObey the capability envelope, workspace, context file, and output schema supplied by the TypeScript manager action. Return only the requested normalized result.`;
 }
-function commandContent(host: Host, name: string, description: string): string {
+export function commandContent(host: Host, name: string, description: string): string {
   let front = '';
   if (host === 'opencode') front = `---\ndescription: ${description}\nagent: agents-crew-manager\n---\n\n`;
   if (host === 'claude-code') front = `---\ndescription: ${description}\n---\n\n`;
@@ -78,7 +78,7 @@ function commandContent(host: Host, name: string, description: string): string {
   };
   return `${front}Run \`${invocations[name]}\` using safe argument boundaries.\n`;
 }
-function managerContent(host: Host): string {
+export function managerContent(host: Host): string {
   let front = '';
   if (host === 'opencode') front = '---\ndescription: Coordinates Agents Crew runs\nmode: primary\npermission:\n  edit: allow\n  bash: ask\n  task: allow\n---\n\n';
   if (host === 'claude-code') front = '---\nname: agents-crew-manager\ndescription: Coordinates Agents Crew runs\ntools: Read, Write, Edit, Bash, Task\n---\n\n';

@@ -164,3 +164,30 @@ test('API worker rejects unsafe endpoint protocols at construction', async () =>
   assert.throws(() => new ApiWorker({ ...base, api_base_url: 'file:///tmp/secret' }), /HTTP or HTTPS/i);
   assert.throws(() => new ApiWorker({ ...base, api_base_url: 'not a url' }), /valid URL/i);
 });
+
+test('CLI worker registers managed process and consumes restart requests from the registry', async () => {
+  const { ProcessRegistry } = await import('../dist/runtime/process-registry.js');
+  const root = await mkdtemp(join(tmpdir(), 'agents-crew-worker-control-'));
+  const script = join(root, 'slow.mjs');
+  await writeFile(script, `setInterval(() => {}, 1000);`);
+  const context = join(root, 'context.md');
+  await writeFile(context, 'context');
+  const worker = new CliWorker({
+    id: 'controlled', kind: 'cli', enabled: true, adapter: 'custom', command: process.execPath,
+    args: [script], roles: ['researcher'], capabilities: ['read'], priority: 1,
+    env_allowlist: [], headers: {}, timeout_seconds: 10,
+  }, 10);
+  const execution = worker.execute({ run_id: 'run-control', task: task('controlled-task'), workspace: root, context_path: context, role_prompt: 'role' });
+  const registry = new ProcessRegistry(root);
+  let record;
+  for (let attempt = 0; attempt < 50 && !record; attempt += 1) {
+    record = (await registry.list()).find((item) => item.task_id === 'controlled-task');
+    if (!record) await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.ok(record, 'worker process should be registered');
+  assert.equal(record.state, 'running');
+  await registry.requestControl(record.id, 'restart');
+  await assert.rejects(execution, /restart requested/i);
+  const completed = await registry.get(record.id);
+  assert.equal(completed.state, 'exited');
+});

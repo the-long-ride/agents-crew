@@ -15,6 +15,7 @@
       <nav aria-label="Primary">
         <button type="button" class="nav-button active" data-view="builder" data-tooltip="Design and arrange crew members" data-tooltip-position="bottom">Builder</button>
         <button type="button" class="nav-button" data-view="crews" data-tooltip="Compare all crew definitions" data-tooltip-position="bottom">Crews</button>
+        <button type="button" class="nav-button" data-view="connect" data-tooltip="Wire Agents Crew to supported hosts globally" data-tooltip-position="bottom">Connect</button>
         <button type="button" class="nav-button" data-view="runtime" data-tooltip="Inspect active runs and task progress" data-tooltip-position="bottom">Runtime</button>
         <button type="button" class="nav-button" data-view="history" data-tooltip="Review archived and completed runs" data-tooltip-position="bottom">History</button>
       </nav>
@@ -132,6 +133,22 @@
         <div id="crew-table" class="table-shell"></div>
       </section>
 
+
+      <section id="connect-view" class="view page" hidden>
+        <div class="page-heading">
+          <div>
+            <div class="section-heading compact">
+              <p class="eyebrow">Host wiring</p>
+              <button type="button" class="info-button" aria-label="About Connect" data-info-title="Connect" data-info-text="Install and maintain Agents Crew integration in each supported host's global user scope. Existing unowned files are never overwritten.">i</button>
+            </div>
+            <h2>Connect</h2>
+          </div>
+          <button id="refresh-connections" type="button" class="secondary-button" data-tooltip="Re-check all global host connections" data-tooltip-position="bottom">Refresh</button>
+        </div>
+        <p class="lead">Wire Agents Crew once at user scope for Codex, Claude Code, OpenCode, and Antigravity. Repair only replaces files already owned by Agents Crew.</p>
+        <div id="connection-list" class="connection-grid"><div class="empty">Loading host connections…</div></div>
+      </section>
+
       <section id="runtime-view" class="view page" hidden>
         <div class="page-heading">
           <div>
@@ -143,6 +160,13 @@
           </div>
           <button id="refresh-runs" type="button" class="secondary-button" data-tooltip="Reload active runs" data-tooltip-position="bottom">Refresh</button>
         </div>
+        <section class="process-region" aria-labelledby="crew-processes-heading">
+          <div class="process-region-heading">
+            <div><p class="eyebrow">Managed workers</p><h3 id="crew-processes-heading">Crew Processes</h3></div>
+            <p>Only subprocesses started and owned by Agents Crew are shown here.</p>
+          </div>
+          <div id="process-list"><div class="empty process-empty">No Agents-Crew-managed processes are active.</div></div>
+        </section>
         <div class="runtime-layout">
           <div id="run-list" class="run-list"></div>
           <article id="run-detail" class="detail-card"><div class="empty">Select an active run.</div></article>

@@ -11,7 +11,7 @@ function memberAdapter(member: MemberConfig): string {
 
 export const crewActions = (
   state: AppState,
-  toast: (message: string) => void,
+  toast: (message: string, type?: 'success' | 'error' | 'failed' | 'info' | boolean) => void,
   storeGroups: () => void,
   render: () => void,
   loadModels: (host: string, refresh?: boolean) => Promise<ModelCatalogResponse>,

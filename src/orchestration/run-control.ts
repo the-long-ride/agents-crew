@@ -46,6 +46,7 @@ export async function resumeRun(workspace: string, requested?: string): Promise<
     await store(workspace).appendEvent(run.id, 'run_resumed', { restored_status: run.status });
   }
   if (run.status !== 'manager_required' && run.status !== 'awaiting_approval') {
+    await persistRun(workspace, run);
     await advanceRun(workspace, await new RunProtocol(workspace).loadSnapshot(run.id), run);
   }
   await persistRun(workspace, run);

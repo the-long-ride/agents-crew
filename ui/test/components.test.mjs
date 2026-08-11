@@ -208,3 +208,43 @@ test('confirmDialog confirms on Enter key', async () => {
     else globalThis.document = priorDocument;
   }
 });
+
+test('Connect view renders global host status cards with state-aware actions', async () => {
+  const { connectMarkup } = await import('../../dist/ui/assets/connect.js');
+  const html = connectMarkup([
+    { host: 'codex', status: 'missing', files: [] },
+    { host: 'claude-code', status: 'connected', files: [{ path: '/home/.claude/skills/crew-run/SKILL.md', action: 'ok', message: 'ok' }] },
+    { host: 'opencode', status: 'modified', files: [{ path: '/home/.config/opencode/commands/crew-run.md', action: 'modified', message: 'edited' }] },
+    { host: 'antigravity', status: 'error', files: [], message: 'broken manifest' },
+  ]);
+  assert.match(html, /data-connect-host="codex"/u);
+  assert.match(html, /data-connection-action="connect"/u);
+  assert.match(html, /data-connect-host="claude-code"/u);
+  assert.match(html, /data-connection-action="disconnect"/u);
+  assert.match(html, /data-connect-host="opencode"/u);
+  assert.match(html, /data-connection-action="repair"/u);
+  assert.match(html, /broken manifest/u);
+  assert.match(html, /Global scope/u);
+});
+
+test('Runtime process table exposes only valid state-aware process controls', async () => {
+  const { processTableMarkup } = await import('../../dist/ui/assets/processes.js');
+  const base = {
+    host: 'codex', pid: 123, run_id: 'run-12345678', task_id: 'inspect', workspace: '/repo',
+    worker_id: 'codex-worker', started_at: new Date(Date.now() - 5000).toISOString(), updated_at: new Date().toISOString(),
+  };
+  const html = processTableMarkup([
+    { ...base, id: 'running', state: 'running' },
+    { ...base, id: 'pausing', state: 'pausing' },
+    { ...base, id: 'paused', state: 'paused' },
+    { ...base, id: 'exited', state: 'exited', exit_code: 0 },
+  ], Date.now());
+  assert.match(html, /data-process="running"[\s\S]*data-process-action="pause"/u);
+  assert.match(html, /data-process="running"[\s\S]*data-process-action="restart"/u);
+  assert.match(html, /data-process="paused"[\s\S]*data-process-action="resume"/u);
+  assert.match(html, /data-process="paused"[\s\S]*data-process-action="stop"/u);
+  assert.match(html, /PID/u);
+  assert.match(html, /Uptime/u);
+  assert.match(html, /data-label="Worker"/u);
+  assert.match(html, /data-label="Controls"/u);
+});

@@ -170,3 +170,80 @@ test('UI bootstrap and template routes restore the control-plane data model', as
   assert.deepEqual(await deleted.json(), { deleted: 'focused', scope: 'workspace' });
   assert.equal((await fetch(`${base}/api/templates/focused`, { headers })).status, 404);
 });
+
+test('UI exposes global host connection lifecycle without touching the real home directory', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'agents-crew-ui-connections-workspace-'));
+  const fakeHome = await mkdtemp(join(tmpdir(), 'agents-crew-ui-connections-home-'));
+  const token = 'connections-token';
+  const server = createUiServer(root, token, { home: fakeHome });
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = await listen(server);
+  const headers = { 'x-agents-crew-token': token, 'content-type': 'application/json' };
+
+  const list = await fetch(`${base}/api/connections`, { headers });
+  assert.equal(list.status, 200);
+  assert.equal((await list.json()).connections.length, 4);
+
+  const invalid = await fetch(`${base}/api/connections/claude-code/connect`, { method: 'POST', headers, body: '{' });
+  assert.equal(invalid.status, 400);
+  const afterInvalid = await fetch(`${base}/api/connections`, { headers });
+  const claudeAfterInvalid = (await afterInvalid.json()).connections.find((item) => item.host === 'claude-code');
+  assert.equal(claudeAfterInvalid.status, 'missing');
+
+  const connected = await fetch(`${base}/api/connections/claude-code/connect`, { method: 'POST', headers, body: '{}' });
+  assert.equal(connected.status, 200);
+  assert.equal((await connected.json()).status, 'connected');
+
+  const checked = await fetch(`${base}/api/connections/claude-code/check`, { method: 'POST', headers, body: '{}' });
+  assert.equal((await checked.json()).status, 'connected');
+  const disconnected = await fetch(`${base}/api/connections/claude-code/disconnect`, { method: 'POST', headers, body: '{}' });
+  assert.equal((await disconnected.json()).status, 'missing');
+  assert.equal((await fetch(`${base}/api/connections/unknown/connect`, { method: 'POST', headers, body: '{}' })).status, 400);
+});
+
+test('UI lists managed processes and maps safe process controls to durable run state', async (context) => {
+  const { ProcessRegistry } = await import('../../dist/runtime/process-registry.js');
+  const root = await mkdtemp(join(tmpdir(), 'agents-crew-ui-process-api-'));
+  const config = starterConfig();
+  const run = createRun('Process API', root, 'current', config.manager, config.run.max_iterations);
+  run.status = 'working';
+  run.tasks.inspect = createTask('inspect', {
+    title: 'Inspect', instructions: 'Inspect', role: 'researcher', capabilities: ['read'], write_scope: [],
+    dependencies: [], preferred_workers: [], expected_output: 'findings', max_attempts: 2,
+  });
+  await new RunStore(root).create(run);
+  await new RunProtocol(root).materialize(run, config, {
+    template_id: 'process-api', template_name: 'Process API', goal: run.original_goal,
+    expectations: [], acceptance_criteria: [], constraints: [],
+  });
+  const registry = new ProcessRegistry(root);
+  const processRecord = await registry.register({
+    worker_id: 'worker', host: 'codex', pid: process.pid, run_id: run.id, task_id: 'inspect', workspace: root,
+  });
+  const token = 'process-token';
+  const server = createUiServer(root, token);
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = await listen(server);
+  const headers = { 'x-agents-crew-token': token, 'content-type': 'application/json' };
+
+  const list = await fetch(`${base}/api/processes`, { headers });
+  assert.equal(list.status, 200);
+  assert.equal((await list.json()).processes[0].id, processRecord.id);
+
+  const paused = await fetch(`${base}/api/processes/${processRecord.id}/pause`, { method: 'POST', headers, body: '{}' });
+  assert.equal(paused.status, 200);
+  assert.equal((await paused.json()).process.state, 'pausing');
+  assert.equal((await new RunStore(root).load(run.id)).status, 'paused');
+
+  await registry.complete(processRecord.id, 'paused', 0);
+  const resumed = await fetch(`${base}/api/processes/${processRecord.id}/resume`, { method: 'POST', headers, body: '{}' });
+  assert.equal(resumed.status, 200);
+  assert.equal((await registry.get(processRecord.id)).state, 'exited');
+
+  const next = await registry.register({ worker_id: 'worker', host: 'codex', pid: process.pid, run_id: run.id, task_id: 'inspect', workspace: root });
+  const restarted = await fetch(`${base}/api/processes/${next.id}/restart`, { method: 'POST', headers, body: '{}' });
+  assert.equal(restarted.status, 200);
+  assert.equal((await restarted.json()).process.state, 'stopping');
+  assert.equal((await registry.consumeControl(next.id)).action, 'restart');
+  assert.equal((await fetch(`${base}/api/processes/${next.id}/bogus`, { method: 'POST', headers, body: '{}' })).status, 404);
+});

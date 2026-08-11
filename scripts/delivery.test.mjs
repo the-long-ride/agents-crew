@@ -18,10 +18,11 @@ test('runtime implementation is grouped into source subdirectories', async () =>
 
 
 
-test('built UI contains Builder, Crews, Runtime, and History modules', async () => {
+test('built UI contains Builder, Crews, Connect, Runtime, and History modules', async () => {
   const html = await readFile(new URL('../dist/ui/index.html', import.meta.url), 'utf-8');
   assert.match(html, />Builder</u);
   assert.match(html, />Crews</u);
+  assert.match(html, />Connect</u);
   assert.match(html, />Runtime</u);
   assert.match(html, />History</u);
   assert.match(html, /id="fit-graph"/u);
@@ -39,7 +40,7 @@ test('built UI contains Builder, Crews, Runtime, and History modules', async () 
   assert.match(html, /data-scope="global"/u);
   assert.match(html, /data-scope="workspace"/u);
   assert.match(html, /data-tooltip=/u);
-  for (const asset of ['app.js', 'builder.js', 'templates.js', 'runtime.js', 'model.js', 'api.js', 'theme.js', 'components/combobox.js', 'components/info.js', 'components/tooltip.js', 'graph/viewport.js']) {
+  for (const asset of ['app.js', 'builder.js', 'templates.js', 'connect.js', 'processes.js', 'runtime.js', 'model.js', 'api.js', 'theme.js', 'components/combobox.js', 'components/info.js', 'components/tooltip.js', 'graph/viewport.js']) {
     const source = await readFile(new URL(`../dist/ui/assets/${asset}`, import.meta.url), 'utf8');
     assert.ok(source.length > 0, `empty UI asset ${asset}`);
   }
@@ -57,9 +58,11 @@ test('every nav data-view target has a matching view section and app view list',
     assert.match(html, new RegExp(`id="${view}-view"`, 'u'), `missing #${view}-view section for data-view="${view}"`);
   }
   const appSource = await readFile(new URL('../dist/ui/assets/app.js', import.meta.url), 'utf8');
-  const viewListMatch = appSource.match(/\[\s*'builder',\s*'([a-z]+)',\s*'runtime',\s*'history'\s*\]/u);
-  assert.ok(viewListMatch, 'app.js view list not found');
-  assert.equal(viewListMatch[1], 'crews', "app.js view list must use 'crews' (not 'templates')");
+  assert.match(
+    appSource,
+    /\[\s*'builder',\s*'crews',\s*'connect',\s*'runtime',\s*'history'\s*\]/u,
+    'app.js must expose the same Builder/Crews/Connect/Runtime/History view list',
+  );
 });
 
 test('typecheck fails instead of silently succeeding when no checker is available', () => {

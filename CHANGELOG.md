@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.0.2
+
+- Added double-click inline rename for crew and group items in the Crew library sidebar (Enter/blur to save, Escape to cancel).
+- Redesigned canvas toolbar as a 2×2 grid: eyebrow + info button on top row, metadata inputs + action buttons on bottom row.
+- Moved graph zoom controls (Fit, Reset zoom) from header to absolute overlay on canvas top-right.
+- Fixed missing `#canvas-title` element preventing Builder view from mounting.
+- Fixed missing `#crews-view` element after renaming the Templates tab to Crews, aligning `ViewName` with the HTML nav and view sections.
+- Fixed double-click inline rename losing focus mid-typing by replacing `.list-row-select` from `<button>` to `<div role="button">`, decoupling the group toggle button from the title span, adding `stopPropagation` on all inline `<input>` events, clearing pending collapse timers on double-click, and deferring `input.focus()` via `setTimeout` to outlast pending mouseup events.
+- Added `dragstart` guard to prevent drag-and-drop from firing when a row contains an active inline rename input.
+- Added text-overflow ellipsis truncation for long crew names (`.list-row-name`) and group header titles (`.group-header-title > span`), with `flex-shrink: 0` on action buttons so counts and icons remain fully visible.
+- Increased left sidebar min-width from 200 px to 260 px (CSS `minmax`, CSS custom property, `resizeSidebarWidth` clamp, ARIA `aria-valuemin`, and resizer unit test) to eliminate the horizontal scrollbar.
+- Made the Global / Workspace scope switch a dual-purpose control: clicking a tab now filters the Crew library to show only crews from that scope (plus always-visible builtin crews) in addition to setting the save destination for new crews. Empty states report the active scope ("No global crews", "No workspace crews matching your search").
+- Updated scope switch tooltips to "Show global crews · new crews save globally" and "Show workspace crews · new crews save to this repo".
+- Added `ui/test/crew-list.test.mjs` with 20 tests covering UI components and crew list features.
+- Configured GitHub Actions release workflow for npm Trusted Publishers (OIDC keyless publishing).
+- Added green and red borderline colors for WebUI toast notifications based on success or error status.
+- Added structured human CLI presentation with TTY-aware ANSI colors, status symbols, hierarchy/indentation, and unchanged color-free `--json` output.
+- Added a Connect tab for safe global user-scope wiring of Codex, Claude Code, OpenCode, and Antigravity, with ownership-aware check/connect/repair/disconnect operations.
+- Migrated global Codex wiring to Agent Skills rather than removed custom prompts.
+- Added a durable managed-process registry and Runtime process table for Agents-Crew-owned workers, including safe Pause/Resume scheduling plus Restart/Stop controls.
+- Made the scheduler observe externally persisted pause/cancel state between task boundaries so a safe pause never launches the next task.
+
 ## 0.0.1
 
 - Migrated the orchestration runtime from a multi-crate Rust workspace to one dependency-free TypeScript npm package.
@@ -27,15 +49,3 @@
 - Renamed UI terminology: Template→Crew, Manager→Boss, Worker→Member across all TypeScript types, variables, functions, HTML IDs, CSS classes, labels, and test files.
 - Updated delivery test assertions to match renamed terminology.
 - Added Engram project memory workspace for all rules, knowledge, workflows, and skills from AGENTS_CREW_AGENT_MEMORY.md.
-- Added double-click inline rename for crew and group items in the Crew library sidebar (Enter/blur to save, Escape to cancel).
-- Redesigned canvas toolbar as a 2×2 grid: eyebrow + info button on top row, metadata inputs + action buttons on bottom row.
-- Moved graph zoom controls (Fit, Reset zoom) from header to absolute overlay on canvas top-right.
-- Fixed missing `#canvas-title` element preventing Builder view from mounting.
-- Fixed missing `#crews-view` element after renaming the Templates tab to Crews, aligning `ViewName` with the HTML nav and view sections.
-- Fixed double-click inline rename losing focus mid-typing by replacing `.list-row-select` from `<button>` to `<div role="button">`, decoupling the group toggle button from the title span, adding `stopPropagation` on all inline `<input>` events, clearing pending collapse timers on double-click, and deferring `input.focus()` via `setTimeout` to outlast pending mouseup events.
-- Added `dragstart` guard to prevent drag-and-drop from firing when a row contains an active inline rename input.
-- Added text-overflow ellipsis truncation for long crew names (`.list-row-name`) and group header titles (`.group-header-title > span`), with `flex-shrink: 0` on action buttons so counts and icons remain fully visible.
-- Increased left sidebar min-width from 200 px to 260 px (CSS `minmax`, CSS custom property, `resizeSidebarWidth` clamp, ARIA `aria-valuemin`, and resizer unit test) to eliminate the horizontal scrollbar.
-- Made the Global / Workspace scope switch a dual-purpose control: clicking a tab now filters the Crew library to show only crews from that scope (plus always-visible builtin crews) in addition to setting the save destination for new crews. Empty states report the active scope ("No global crews", "No workspace crews matching your search").
-- Updated scope switch tooltips to "Show global crews · new crews save globally" and "Show workspace crews · new crews save to this repo".
-- Added `ui/test/crew-list.test.mjs` with 20 tests covering: accessible `div[role=button]` row markup, selected-class application, delete-button visibility, scope label rendering, XSS escaping, scope-based crew filtering (global / workspace / builtin visibility), scoped empty-state messages, combined scope + search filtering, workspace-derived group exclusion from global scope view, group-header-title nested span structure for CSS ellipsis, left sidebar min-width clamping, and right sidebar direction semantics.

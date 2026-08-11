@@ -112,3 +112,42 @@ test('persistRun archives blocked and failed terminal runs into history', async 
     await assert.rejects(access(join(root, '.agents-crew', 'active', run.id, 'run.json')));
   }
 });
+
+test('engine observes an externally persisted pause before scheduling the next task', async () => {
+  const { changeRunStatus } = await import('../dist/orchestration/run-control.js');
+  const root = await mkdtemp(join(tmpdir(), 'agents-crew-engine-external-pause-'));
+  const script = join(root, 'pause-worker.mjs');
+  await writeFile(script, `import { basename } from 'node:path'; import { writeFile } from 'node:fs/promises';\nconst output=process.argv[2]; const task=basename(output).startsWith('first-')?'first':'second'; await new Promise(r=>setTimeout(r,180)); await writeFile(output, JSON.stringify({task_id:task,status:'completed',summary:'done',artifacts:[],files_changed:[],commands_run:[],tests:[],evidence:[],assumptions:[],blockers:[],recommended_next_tasks:[],metadata:{},capabilities_used:['read']}));`);
+  const config = starterConfig();
+  config.verification.require_independent_review = false;
+  config.workers = [{
+    id: 'pause-worker', kind: 'cli', enabled: true, adapter: 'custom', command: process.execPath,
+    roles: ['researcher'], capabilities: ['read'], priority: 100, args: [script, '{output}'], env_allowlist: [], headers: {},
+    requires_network: false, requires_credentials: false, model_fallback: 'allow_host_default',
+  }];
+  const run = makeRun(root, config, 'pause boundary');
+  run.tasks.first = createTask('first', {
+    title: 'First', instructions: 'first', role: 'researcher', capabilities: ['read'], write_scope: [],
+    dependencies: [], preferred_workers: [], expected_output: 'first', max_attempts: 2,
+  });
+  run.tasks.second = createTask('second', {
+    title: 'Second', instructions: 'second', role: 'researcher', capabilities: ['read'], write_scope: [],
+    dependencies: ['first'], preferred_workers: [], expected_output: 'second', max_attempts: 2,
+  });
+  await prepare(root, config, run);
+  const advancing = advanceRun(root, config, run);
+  let firstRunning = false;
+  for (let attempt = 0; attempt < 50 && !firstRunning; attempt += 1) {
+    const stored = await store(root).load(run.id);
+    firstRunning = stored.tasks.first.status === 'running';
+    if (!firstRunning) await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.equal(firstRunning, true);
+  await changeRunStatus(root, run.id, 'paused', 'ui');
+  await advancing;
+
+  assert.equal(run.status, 'paused');
+  assert.equal(run.tasks.first.status, 'completed');
+  assert.equal(run.tasks.second.status, 'pending');
+  assert.equal((await store(root).load(run.id)).status, 'paused');
+});

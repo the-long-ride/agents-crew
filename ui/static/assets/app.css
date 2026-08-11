@@ -322,6 +322,8 @@ legend { padding: 0 4.5px; font: 12px var(--mono); letter-spacing: 1px; text-tra
   opacity: 0; pointer-events: none; transform: translateY(8px); transition: .16s ease;
 }
 #toast.show { opacity: 1; transform: translateY(0); }
+#toast.success { border-color: var(--green); }
+#toast.error, #toast.failed { border-color: var(--danger); }
 
 @media (max-width: 1100px) {
   .topbar { flex-wrap: wrap; }
@@ -429,3 +431,43 @@ legend { padding: 0 4.5px; font: 12px var(--mono); letter-spacing: 1px; text-tra
 @keyframes dialogFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dialogFadeOut { from { opacity: 1; } to { opacity: 0; } }
 @keyframes dialogScaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+/* Global host connections */
+.connection-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
+.connection-card { display: grid; align-content: start; gap: 12px; min-height: 205px; padding: 16px; border: 1px solid var(--line); background: var(--surface); }
+.connection-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.connection-card h3 { margin: 5px 0 0; font-size: 22px; font-weight: 500; }
+.connection-card p { margin: 0; color: var(--body); }
+.connection-status, .process-state { display: inline-block; padding: 3px 6px; border: 1px solid var(--line); font: 11px var(--mono); text-transform: uppercase; }
+.connection-status.connected, .process-state.running { color: var(--green); border-color: color-mix(in srgb, var(--green) 48%, var(--line)); }
+.connection-status.modified, .process-state.pausing, .process-state.stopping { color: var(--orange); border-color: color-mix(in srgb, var(--orange) 48%, var(--line)); }
+.connection-status.error, .process-state.failed { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 48%, var(--line)); }
+.connection-status.missing, .process-state.paused, .process-state.exited { color: var(--mute); }
+.connection-path { overflow: hidden; padding: 6px; color: var(--mute); text-overflow: ellipsis; white-space: nowrap; border: 1px solid var(--line); }
+
+/* Runtime managed process region */
+.process-region { margin-top: 24px; padding: 14px; border: 1px solid var(--line); background: var(--surface); }
+.process-region-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
+.process-region-heading h3 { margin: 4px 0 0; font-size: 20px; font-weight: 500; }
+.process-region-heading > p { max-width: 520px; margin: 0; color: var(--mute); text-align: right; }
+.process-shell { margin-top: 14px; padding: 0; border: 0; }
+.process-table { min-width: 900px; }
+.process-table td { vertical-align: middle; }
+.process-table td > small { margin-top: 4px; }
+.process-finished { color: var(--mute); }
+.process-empty { margin-top: 12px; }
+
+@media (max-width: 760px) {
+  .connection-grid { grid-template-columns: 1fr; }
+  .process-region-heading { align-items: flex-start; flex-direction: column; }
+  .process-region-heading > p { text-align: left; }
+  .process-shell { overflow: visible; }
+  .process-table { display: block; min-width: 0; }
+  .process-table thead { display: none; }
+  .process-table tbody { display: grid; gap: 10px; }
+  .process-table tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; border: 1px solid var(--line); }
+  .process-table td { display: grid; align-content: start; gap: 4px; min-width: 0; padding: 0; border: 0; }
+  .process-table td::before { content: attr(data-label); color: var(--mute); font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+  .process-table td[data-label="Controls"] { grid-column: 1 / -1; }
+  .process-table td[data-label="Controls"] .table-actions { flex-wrap: wrap; }
+}

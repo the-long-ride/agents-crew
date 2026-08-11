@@ -1,3 +1,5 @@
+import { connectionApiRequest } from './connections-api.js';
+import { processApiRequest } from './processes-api.js';
 import { existsSync } from 'node:fs';
 import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -77,7 +79,7 @@ export function errorStatus(error: unknown): number {
   if (error instanceof SyntaxError) return 400;
   const message = errorMessage(error);
   if (/not found|unknown action/u.test(message)) return 404;
-  if (/invalid|must|cannot|mismatch|required|no roles|needs /u.test(message)) return 400;
+  if (/invalid|must|cannot|mismatch|required|no roles|needs |unknown host|method not allowed/u.test(message)) return 400;
   return 500;
 }
 
@@ -199,9 +201,23 @@ export async function handleApiRequest(
   response: ServerResponse,
   url: URL,
   token: string,
+  options: { home?: string } = {},
 ): Promise<boolean> {
   if (!url.pathname.startsWith('/api/')) return false;
   if (!apiTokenMatches(request, token)) { json(response, 401, { error: 'unauthorized' }); return true; }
+  const mutatingControlRoute = request.method === 'POST'
+    && (url.pathname.startsWith('/api/connections/') || url.pathname.startsWith('/api/processes/'));
+  if (mutatingControlRoute) await readBody(request);
+  const connectionRoute = await connectionApiRequest(options.home ?? process.env.HOME ?? process.env.USERPROFILE ?? '.', request.method, url.pathname);
+  if (connectionRoute.matched) {
+    json(response, 200, connectionRoute.value);
+    return true;
+  }
+  const processRoute = await processApiRequest(workspace, request.method, url.pathname);
+  if (processRoute.matched) {
+    json(response, 200, processRoute.value);
+    return true;
+  }
   if (request.method === 'GET' && url.pathname === '/api/bootstrap') {
     const crews = await new TemplateRegistry(workspace).list();
     const savedGroups = await readGroups(workspace);

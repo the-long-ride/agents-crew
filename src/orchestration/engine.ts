@@ -9,18 +9,16 @@ import { decidePolicy, type PolicyOperation } from '../domain/policy.js';
 import { GitRepository, type ChangeSnapshot } from '../runtime/git.js';
 import { RunProtocol } from './protocol.js';
 import { RunStore } from '../runtime/state.js';
-import { ApiWorker, CliWorker, type Worker, type WorkerRequest } from '../runtime/workers.js';
+import { ApiWorker, CliWorker, WorkerProcessControlError, type Worker, type WorkerRequest } from '../runtime/workers.js';
 import type { ApprovalRequest, CrewConfig, OutstandingAction, Run, Task, TestResult, WorkerConfig, WorkerResult } from '../domain/types.js';
-
 export type Execution =
   | { type: 'result'; result: WorkerResult; worker_id: string; workspace?: string; fingerprint: string }
   | { type: 'native'; action: OutstandingAction; worker_id: string; workspace?: string; fingerprint: string }
   | { type: 'approval'; approval: ApprovalRequest }
-  | { type: 'failure'; task_id: string; message: string; worker_id?: string; workspace?: string; fingerprint?: string };
-
+  | { type: 'failure'; task_id: string; message: string; worker_id?: string; workspace?: string; fingerprint?: string }
+  | { type: 'control'; task_id: string; action: 'restart' | 'stop'; workspace?: string };
 export function configPath(workspace: string): string { return join(workspace, '.agents-crew', 'config.toml'); }
 export function store(workspace: string): RunStore { return new RunStore(workspace); }
-
 export function buildDefaultRun(workspace: string, goal: string, config: CrewConfig): Run {
   const run = createRun(goal, workspace, config.run.workspace_mode, {
     host: config.manager.host,
@@ -53,7 +51,6 @@ export function buildDefaultRun(workspace: string, goal: string, config: CrewCon
   run.status = 'working';
   return run;
 }
-
 function approvalFor(task: Task, operation: PolicyOperation): ApprovalRequest {
   return {
     id: randomUUID(),
@@ -63,7 +60,6 @@ function approvalFor(task: Task, operation: PolicyOperation): ApprovalRequest {
     created_at: new Date().toISOString(),
   };
 }
-
 function policyContext(run: Run) {
   return {
     manager_coding: run.manager.coding,
@@ -71,11 +67,9 @@ function policyContext(run: Run) {
     small_fix_max_changed_lines: run.manager.small_fix_max_changed_lines,
   } as const;
 }
-
 function operationApproved(run: Run, operation: string): boolean {
   return run.approvals.some((approval) => approval.operation === operation && approval.status === 'approved');
 }
-
 function enforceTaskPolicy(config: CrewConfig, run: Run, task: Task, worker?: WorkerConfig): ApprovalRequest | undefined {
   const operations: PolicyOperation[] = [];
   if (taskWrites(task)) operations.push({ type: 'local_edit' });
@@ -94,7 +88,6 @@ function enforceTaskPolicy(config: CrewConfig, run: Run, task: Task, worker?: Wo
   }
   return undefined;
 }
-
 function eligibleConfig(config: CrewConfig, task: Task): WorkerConfig[] {
   return config.workers.filter((worker) => worker.enabled
     && worker.roles.includes(task.role)
@@ -103,23 +96,18 @@ function eligibleConfig(config: CrewConfig, task: Task): WorkerConfig[] {
     && (!task.preferred_workers.length || task.preferred_workers.includes(worker.id)))
     .sort((left, right) => right.priority - left.priority || left.id.localeCompare(right.id));
 }
-
 async function rolePrompt(task: Task): Promise<string> {
   return readFile(assetPath('roles', `${task.role}.md`), 'utf8');
 }
-
 function fingerprint(worker: WorkerConfig, task: Task, workspace: string): string {
   return createHash('sha256').update(JSON.stringify({ worker: worker.id, model: worker.model, task: task.instructions, workspace })).digest('hex');
 }
-
 function taskVisibleChanges(paths: string[]): string[] {
   return paths.filter((path) => path !== '.agents-crew' && !path.startsWith('.agents-crew/'));
 }
-
 async function discoverRepository(path: string): Promise<GitRepository | undefined> {
   try { return await GitRepository.discover(path); } catch { return undefined; }
 }
-
 async function createNativeAction(
   workspace: string,
   run: Run,
@@ -144,7 +132,6 @@ async function createNativeAction(
   await store(workspace).saveAction(action);
   return action;
 }
-
 async function selectExecutable(config: CrewConfig, task: Task): Promise<{ config: WorkerConfig; worker?: Worker }> {
   const candidates = eligibleConfig(config, task);
   for (const candidate of candidates) {
@@ -189,6 +176,7 @@ async function executeTask(workspace: string, config: CrewConfig, run: Run, task
       model_fallback: selected.config.model_fallback ?? 'allow_host_default',
       timeout_seconds: selected.config.timeout_seconds ?? config.run.default_task_timeout_seconds,
       workspace_mode: config.run.workspace_mode,
+      registry_workspace: workspace,
     };
     const result = await selected.worker?.execute(request);
     if (!result) throw new Error('selected worker did not execute');
@@ -204,6 +192,9 @@ async function executeTask(workspace: string, config: CrewConfig, run: Run, task
     }
     return { type: 'result', result, worker_id: selected.config.id, workspace: binding, fingerprint: strategy };
   } catch (error) {
+    if (error instanceof WorkerProcessControlError) {
+      return { type: 'control', task_id: task.id, action: error.action, workspace: binding === workspace ? undefined : binding };
+    }
     return { type: 'failure', task_id: task.id, message: error instanceof Error ? error.message : String(error), workspace: binding === workspace ? undefined : binding };
   }
 }
@@ -245,6 +236,20 @@ async function markFailure(workspace: string, run: Run, taskId: string, message:
 }
 
 async function handleExecution(workspace: string, config: CrewConfig, run: Run, execution: Execution): Promise<void> {
+  if (execution.type === 'control') {
+    const task = run.tasks[execution.task_id];
+    if (!task) throw new Error(`missing task ${execution.task_id}`);
+    if (execution.action === 'restart') {
+      task.status = 'retryable';
+      await store(workspace).appendEvent(run.id, 'task_restart_requested', { task_id: task.id });
+    } else {
+      task.status = 'cancelled';
+      run.status = 'cancelled';
+      run.terminal_summary = 'Stopped from managed process control';
+      await store(workspace).appendEvent(run.id, 'task_stop_requested', { task_id: task.id });
+    }
+    return;
+  }
   if (execution.type === 'result') {
     const task = run.tasks[execution.result.task_id];
     if (!task) throw new Error(`missing task ${execution.result.task_id}`);
@@ -346,8 +351,21 @@ export async function persistRun(workspace: string, run: Run): Promise<void> {
   } else await protocol.sync(run);
 }
 
+async function syncExternalControlStatus(workspace: string, run: Run): Promise<void> {
+  let persisted: Run;
+  try { persisted = await store(workspace).load(run.id); } catch { return; }
+  if (persisted.status === 'paused' || persisted.status === 'cancelled') {
+    run.status = persisted.status;
+    if (persisted.status === 'cancelled') run.terminal_summary = persisted.terminal_summary;
+  }
+}
+
+const schedulerStopStatuses = new Set<string>(['paused', 'cancelled', 'awaiting_approval', 'manager_required', 'completed', 'failed', 'blocked']);
+
 export async function advanceRun(workspace: string, config: CrewConfig, run: Run): Promise<void> {
-  while (!['paused', 'cancelled', 'awaiting_approval', 'manager_required', 'completed', 'failed', 'blocked'].includes(run.status)) {
+  while (!schedulerStopStatuses.has(run.status)) {
+    await syncExternalControlStatus(workspace, run);
+    if (schedulerStopStatuses.has(run.status)) break;
     const graph = taskGraph(Object.values(run.tasks));
     const batch = nextBatch(graph, config.run);
     if (!batch.read_task_ids.length && !batch.write_task_ids.length) { await finishOrBlock(workspace, config, run); break; }
@@ -359,13 +377,19 @@ export async function advanceRun(workspace: string, config: CrewConfig, run: Run
     for (const id of ids) await store(workspace).appendEvent(run.id, 'task_started', { task_id: id, iteration: run.iteration });
     const reads = await Promise.all(batch.read_task_ids.map((id) => executeTask(workspace, config, run, run.tasks[id] as Task)));
     for (const execution of reads) await handleExecution(workspace, config, run, execution);
-    if (['awaiting_approval', 'manager_required', 'failed', 'blocked'].includes(run.status)) { await persistRun(workspace, run); break; }
+    await syncExternalControlStatus(workspace, run);
+    if (schedulerStopStatuses.has(run.status)) { await persistRun(workspace, run); break; }
     if (config.run.workspace_mode === 'isolated') {
       const writes = await Promise.all(batch.write_task_ids.map((id) => executeTask(workspace, config, run, run.tasks[id] as Task)));
       for (const execution of writes) await handleExecution(workspace, config, run, execution);
     } else {
-      for (const id of batch.write_task_ids) await handleExecution(workspace, config, run, await executeTask(workspace, config, run, run.tasks[id] as Task));
+      for (const id of batch.write_task_ids) {
+        await handleExecution(workspace, config, run, await executeTask(workspace, config, run, run.tasks[id] as Task));
+        await syncExternalControlStatus(workspace, run);
+        if (schedulerStopStatuses.has(run.status)) break;
+      }
     }
+    await syncExternalControlStatus(workspace, run);
     await persistRun(workspace, run);
   }
   await persistRun(workspace, run);

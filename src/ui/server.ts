@@ -26,7 +26,7 @@ export function safeStaticPath(root: string, requested: string): string {
   return path;
 }
 
-export function createUiServer(workspace: string, token: string): Server {
+export function createUiServer(workspace: string, token: string, options: { home?: string } = {}): Server {
   const staticRoot = assetPath('dist', 'ui');
   let server: Server;
   server = createServer(async (request, response) => {
@@ -38,7 +38,7 @@ export function createUiServer(workspace: string, token: string): Server {
         server.close(() => process.exit(0));
         return;
       }
-      if (await handleApiRequest(workspace, request, response, url, token)) return;
+      if (await handleApiRequest(workspace, request, response, url, token, options)) return;
       const requested = url.pathname === '/' ? '/index.html' : url.pathname;
       const path = safeStaticPath(staticRoot, requested);
       if (!existsSync(path)) { json(response, 404, { error: 'not found' }); return; }

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { access, mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { Capability, ModelFallback, Role, Task, WorkerConfig, WorkerResult, WorkspaceMode } from '../domain/types.js';
+import { ProcessRegistry, type ManagedProcessControl } from './process-registry.js';
 
 export interface WorkerDescriptor {
   id: string;
@@ -27,6 +28,7 @@ export interface WorkerRequest {
   model_fallback?: ModelFallback;
   timeout_seconds?: number;
   workspace_mode?: WorkspaceMode;
+  registry_workspace?: string;
 }
 export interface Worker { descriptor: WorkerDescriptor; probe(): Promise<WorkerProbe>; execute(request: WorkerRequest): Promise<WorkerResult> }
 
@@ -55,17 +57,47 @@ function extractJson(text: string): string | undefined {
   const last = trimmed.split(/\r?\n/u).at(-1)?.trim();
   return last?.startsWith('{') && last.endsWith('}') ? last : undefined;
 }
-function runProcess(command: string, args: string[], options: { cwd: string; env: NodeJS.ProcessEnv; timeout: number }): Promise<{ stdout: string; stderr: string; code: number }> {
+interface ProcessRunOptions {
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  timeout: number;
+  onSpawn?: (pid: number) => Promise<void>;
+  pollControl?: () => Promise<ManagedProcessControl | undefined>;
+}
+
+function runProcess(command: string, args: string[], options: ProcessRunOptions): Promise<{ stdout: string; stderr: string; code: number; control?: ManagedProcessControl }> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd: options.cwd, env: options.env, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
+    let control: ManagedProcessControl | undefined;
+    let polling = false;
+    const ready = child.pid && options.onSpawn ? options.onSpawn(child.pid) : Promise.resolve();
     child.stdout.setEncoding('utf8').on('data', (chunk: string) => { stdout += chunk; });
     child.stderr.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk; });
-    const timer = setTimeout(() => { child.kill(); reject(new Error('worker timed out')); }, options.timeout * 1000);
-    child.on('error', (error: Error) => { clearTimeout(timer); reject(error); });
-    child.on('close', (code: number | null) => { clearTimeout(timer); resolve({ stdout, stderr, code: code ?? 1 }); });
+    const poller = options.pollControl ? setInterval(() => {
+      if (polling || control) return;
+      polling = true;
+      void ready.then(() => options.pollControl?.()).then((requested) => {
+        if (requested) { control = requested; child.kill(); }
+      }).catch((error: unknown) => { child.kill(); reject(error); }).finally(() => { polling = false; });
+    }, 50) : undefined;
+    const cleanup = () => { if (poller) clearInterval(poller); clearTimeout(timer); };
+    const timer = setTimeout(() => { cleanup(); child.kill(); reject(new Error('worker timed out')); }, options.timeout * 1000);
+    ready.catch((error: unknown) => { cleanup(); child.kill(); reject(error); });
+    child.on('error', (error: Error) => { cleanup(); reject(error); });
+    child.on('close', (code: number | null) => {
+      cleanup();
+      void ready.then(() => resolve({ stdout, stderr, code: code ?? 1, control })).catch(reject);
+    });
   });
+}
+
+export class WorkerProcessControlError extends Error {
+  constructor(readonly action: ManagedProcessControl) {
+    super(`worker ${action} requested`);
+    this.name = 'WorkerProcessControlError';
+  }
 }
 
 export class CliWorker implements Worker {
@@ -116,9 +148,30 @@ export class CliWorker implements Worker {
   async execute(request: WorkerRequest): Promise<WorkerResult> {
     const outputPath = request.output_path ?? `${request.workspace}/.agents-crew/results/${request.task.id}.json`;
     await mkdir(dirname(outputPath), { recursive: true });
-    const result = await runProcess(this.command, await this.interpolate(request, outputPath), {
-      cwd: request.workspace, env: safeEnvironment(this.allowlist), timeout: Math.min(request.timeout_seconds ?? this.timeout, this.timeout),
-    });
+    const registry = request.run_id ? new ProcessRegistry(request.registry_workspace ?? request.workspace) : undefined;
+    let processId: string | undefined;
+    let result: { stdout: string; stderr: string; code: number; control?: ManagedProcessControl };
+    try {
+      result = await runProcess(this.command, await this.interpolate(request, outputPath), {
+        cwd: request.workspace, env: safeEnvironment(this.allowlist), timeout: Math.min(request.timeout_seconds ?? this.timeout, this.timeout),
+        onSpawn: registry && request.run_id ? async (pid) => {
+          const record = await registry.register({
+            worker_id: this.descriptor.id, host: this.config.adapter ?? 'custom', pid, run_id: request.run_id as string,
+            task_id: request.task.id, workspace: request.workspace,
+          });
+          processId = record.id;
+        } : undefined,
+        pollControl: registry ? async () => processId ? (await registry.consumeControl(processId))?.action : undefined : undefined,
+      });
+    } catch (error) {
+      if (registry && processId) await registry.complete(processId, 'failed', undefined, error instanceof Error ? error.message : String(error));
+      throw error;
+    }
+    if (registry && processId) {
+      const current = await registry.get(processId);
+      await registry.complete(processId, current?.state === 'pausing' ? 'paused' : 'exited', result.code);
+    }
+    if (result.control) throw new WorkerProcessControlError(result.control);
     if (result.code !== 0) throw new Error(`execution failed: ${redact(result.stderr, this.allowlist)}`);
     let raw: string;
     try { await access(outputPath); raw = await readFile(outputPath, 'utf8'); }

@@ -1,5 +1,6 @@
 import { requestJson } from './api.js';
 import { mountBuilder } from './builder.js';
+import { renderConnectView, type ConnectionAction } from './connect.js';
 import { crewActions } from './app/crew-actions.js';
 import { promptDialog } from './components/dialog.js';
 import { mountInfoPopovers } from './components/info.js';
@@ -8,15 +9,18 @@ import { mountTooltips, rescanTooltips } from './components/tooltip.js';
 import { byId } from './dom.js';
 import { resetViewport } from './graph/viewport.js';
 import { addMember, normalizeCrew, removeMember } from './model.js';
+import { renderProcessTable, type ProcessAction } from './processes.js';
 import { renderRunView } from './runtime.js';
 import { renderAllCrews } from './templates.js';
 import { mountThemeToggle } from './theme.js';
 import type {
   AppState,
   BootstrapResponse,
+  ConnectionStatus,
   MemberConfig,
   CrewRecord,
   ModelCatalogResponse,
+  ManagedProcess,
   RunDetail,
   RunSummary,
   ViewName,
@@ -26,6 +30,8 @@ const state: AppState = {
   crews: [],
   runs: [],
   historyRuns: [],
+  connections: [],
+  processes: [],
   roles: [],
   capabilities: [],
   models: [],
@@ -79,12 +85,17 @@ const { saveCrew, deleteCrew, moveCrewGroup, renameCrew, renameGroup } = crewAct
 );
 
 let toastTimer: number | undefined;
-function toast(message: string): void {
+type ToastType = 'success' | 'error' | 'failed' | 'info';
+
+function toast(message: string, type?: ToastType | boolean): void {
   const node = byId<HTMLDivElement>('toast');
   node.textContent = message;
-  node.classList.add('show');
+  const isErr = typeof type === 'boolean' ? type : type === 'error' || type === 'failed' || (!type && /error|fail|cannot|required|invalid|exists|could not/i.test(message));
+  const resolved: ToastType = isErr ? 'error' : (type === 'info' ? 'info' : 'success');
+  node.classList.remove('success', 'error', 'failed', 'info');
+  node.classList.add('show', resolved, isErr ? 'failed' : resolved);
   if (toastTimer !== undefined) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => node.classList.remove('show'), 2800);
+  toastTimer = window.setTimeout(() => node.classList.remove('show', 'success', 'error', 'failed', 'info'), 2800);
 }
 
 function selectCrew(record: CrewRecord): void {
@@ -97,6 +108,8 @@ function selectCrew(record: CrewRecord): void {
 function setView(view: ViewName): void {
   state.view = view;
   render();
+  if (view === 'connect') void refreshConnections();
+  if (view === 'runtime') void Promise.all([refreshRuns(), refreshProcesses()]);
 }
 
 function newCrew(): void {
@@ -197,6 +210,36 @@ function deleteSelected(): void {
 }
 
 
+async function refreshConnections(): Promise<void> {
+  try {
+    state.connections = (await requestJson<{ connections: ConnectionStatus[] }>('/api/connections')).connections;
+    renderConnectionView();
+  } catch (error) { toast(error instanceof Error ? error.message : String(error)); }
+}
+
+async function controlConnection(host: string, action: ConnectionAction): Promise<void> {
+  try {
+    await requestJson<ConnectionStatus>(`/api/connections/${encodeURIComponent(host)}/${action}`, { method: 'POST', body: '{}' });
+    await refreshConnections();
+    toast(`${host}: ${action} complete`);
+  } catch (error) { toast(error instanceof Error ? error.message : String(error)); }
+}
+
+async function refreshProcesses(showErrors = true): Promise<void> {
+  try {
+    state.processes = (await requestJson<{ processes: ManagedProcess[] }>('/api/processes')).processes;
+    renderProcessView();
+  } catch (error) { if (showErrors) toast(error instanceof Error ? error.message : String(error)); }
+}
+
+async function controlProcess(id: string, action: ProcessAction): Promise<void> {
+  try {
+    await requestJson<unknown>(`/api/processes/${encodeURIComponent(id)}/${action}`, { method: 'POST', body: '{}' });
+    await Promise.all([refreshProcesses(), refreshRuns()]);
+    toast(`Process ${action} requested`);
+  } catch (error) { toast(error instanceof Error ? error.message : String(error)); }
+}
+
 async function refreshRuns(): Promise<void> {
   try {
     const [active, history] = await Promise.all([
@@ -255,6 +298,14 @@ const renderBuilderView = mountBuilder(state, {
 });
 const runtimeActions = { loadRun, controlRun };
 
+function renderConnectionView(): void {
+  renderConnectView('connection-list', state.connections, { control: controlConnection });
+}
+
+function renderProcessView(): void {
+  renderProcessTable('process-list', state.processes, { control: controlProcess });
+}
+
 function renderRunViews(): void {
   renderRunView({
     listId: 'run-list', detailId: 'run-detail', runs: state.runs,
@@ -282,7 +333,7 @@ mountInfoPopovers();
 mountSidebarResizers(byId('builder-view'));
 
 function render(): void {
-  for (const view of ['builder', 'crews', 'runtime', 'history'] as ViewName[]) {
+  for (const view of ['builder', 'crews', 'connect', 'runtime', 'history'] as ViewName[]) {
     byId(`${view}-view`).hidden = state.view !== view;
   }
   for (const button of document.querySelectorAll<HTMLButtonElement>('[data-view]')) {
@@ -294,6 +345,8 @@ function render(): void {
     open(record) { selectCrew(record); setView('builder'); },
     delete(record) { void deleteCrew(record); },
   });
+  renderConnectionView();
+  renderProcessView();
   renderRunViews();
   rescanTooltips();
 }
@@ -324,8 +377,10 @@ async function initialize(): Promise<void> {
 for (const button of document.querySelectorAll<HTMLButtonElement>('[data-view]')) {
   button.addEventListener('click', () => setView(button.dataset.view as ViewName));
 }
-byId('refresh-runs').addEventListener('click', () => void refreshRuns());
+byId('refresh-runs').addEventListener('click', () => void Promise.all([refreshRuns(), refreshProcesses()]));
+byId('refresh-connections').addEventListener('click', () => void refreshConnections());
 byId('refresh-history').addEventListener('click', () => void refreshRuns());
 byId('shutdown-button').addEventListener('click', () => { void requestJson<unknown>('/api/shutdown', { method: 'POST' }); window.close(); });
+window.setInterval(() => { if (state.view === 'runtime') void refreshProcesses(false); }, 1500);
 render();
 void initialize();

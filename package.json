@@ -1,6 +1,6 @@
 {
   "name": "@the-long-ride/agents-crew",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Dependency-free TypeScript multi-agent crew orchestration for Codex, Claude Code, OpenCode, and Antigravity.",
   "type": "module",
   "bin": {

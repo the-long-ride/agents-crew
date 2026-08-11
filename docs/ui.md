@@ -23,13 +23,21 @@ Use the header scope selector to save to:
 
 Built-in templates are read-only sources. Saving one creates a writable global or workspace template.
 
-## Templates
+## Crews
 
-Templates renders resolved records as a semantic data table with name, ID, scope, worker count, source path, and an Open action. Workspace records override matching global IDs; global records override matching built-ins.
+Crews renders resolved records as a semantic data table with name, ID, scope, worker count, source path, and an Open action. Workspace records override matching global IDs; global records override matching built-ins.
+
+## Connect
+
+Connect manages Agents Crew integration at the current user's global host scope. It supports Codex, Claude Code, OpenCode, and Antigravity and reports each host as `connected`, `modified`, `missing`, or `error`. Connect and Repair refuse unowned target files; Disconnect removes unchanged generated files and preserves user-modified files.
+
+Codex global integration uses Agent Skills under the current user skill scope rather than legacy custom prompts. Claude Code uses personal skills/subagents, OpenCode uses its global command/agent directories, and Antigravity uses a global plugin directory.
 
 ## Runtime
 
-Runtime lists only active durable runs. Selecting a run shows status, iterations, tasks, events, durable files, and pending actions. Pause, resume, and cancel use the same validated state-transition functions as CLI commands.
+Runtime lists active durable runs and a separate **Crew Processes** table containing only worker subprocesses launched by Agents Crew. Each process row includes host/worker, run/task, PID, state, uptime, and state-aware controls. Pause is cooperative: the current worker operation may finish, then the scheduler remains paused before launching another task. Resume continues durable scheduling; Restart asks the owning worker runner to replace the current attempt; Stop cancels the run and terminates the managed child. Agents Crew does not enumerate unrelated operating-system processes.
+
+Selecting a run still shows status, iterations, tasks, events, durable files, and pending actions. Run-level Pause, Resume, and Cancel use the same validated durable state transitions as CLI commands.
 
 ## History
 
@@ -41,4 +49,4 @@ Each major section header includes an information button describing the section'
 
 ## API boundaries
 
-The browser uses authenticated routes under `/api/` only. Request bodies are limited to 1 MiB. Template IDs, scopes, paths, and configurations are validated before filesystem writes. Static path traversal is rejected. Model catalog requests are made by the loopback server; no provider credentials are requested or sent to the browser.
+The browser uses authenticated routes under `/api/` only, including `/api/connections` and `/api/processes` for the new control surfaces. Request bodies are limited to 1 MiB. Template IDs, scopes, paths, and configurations are validated before filesystem writes. Static path traversal is rejected. Model catalog requests are made by the loopback server; no provider credentials are requested or sent to the browser.
