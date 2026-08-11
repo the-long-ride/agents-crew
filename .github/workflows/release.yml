@@ -97,8 +97,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/setup-node@v6
         with:
@@ -112,8 +110,6 @@ jobs:
           name: agents-crew-npm-package
           path: artifacts
       - name: Publish exact verified package
-        env:
-          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
         run: |
           PACKAGE="$(find artifacts -maxdepth 1 -name '*.tgz' -print -quit)"
           test -n "$PACKAGE"
