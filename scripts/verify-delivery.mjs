@@ -9,12 +9,12 @@ const read = (path) => readFileSync(join(root, path), 'utf8');
 const requireFile = (path) => assert.ok(existsSync(join(root, path)), `missing ${path}`);
 const packageJson = JSON.parse(read('package.json'));
 
-assert.equal(packageJson.name, '@agents-crew/cli');
+assert.equal(packageJson.name, '@the-long-ride/agents-crew');
 assert.equal(packageJson.type, 'module');
 assert.equal(packageJson.engines.node, '>=22.13.0');
 assert.match(packageJson.packageManager, /^pnpm@(10|11)\./u);
-assert.equal(packageJson.bin.crew, './dist/cli/entry.js');
-assert.equal(packageJson.bin['agents-crew'], './dist/cli/entry.js');
+assert.equal(packageJson.bin.crew, 'dist/cli/entry.js');
+assert.equal(packageJson.bin['agents-crew'], 'dist/cli/entry.js');
 assert.deepEqual(packageJson.dependencies ?? {}, {}, 'runtime dependencies are not allowed');
 assert.deepEqual(packageJson.devDependencies ?? {}, {}, 'development dependencies are not allowed');
 assert.ok(packageJson.files.includes('ui/src'), 'npm package must include browser TypeScript source');

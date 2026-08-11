@@ -1,11 +1,11 @@
 {
-  "name": "@agents-crew/cli",
+  "name": "@the-long-ride/agents-crew",
   "version": "0.0.1",
   "description": "Dependency-free TypeScript multi-agent crew orchestration for Codex, Claude Code, OpenCode, and Antigravity.",
   "type": "module",
   "bin": {
-    "crew": "./dist/cli/entry.js",
-    "agents-crew": "./dist/cli/entry.js"
+    "crew": "dist/cli/entry.js",
+    "agents-crew": "dist/cli/entry.js"
   },
   "main": "./dist/index.js",
   "exports": "./dist/index.js",
@@ -41,7 +41,6 @@
   "license": "MIT",
   "publishConfig": {
     "access": "public",
-    "provenance": true,
     "registry": "https://registry.npmjs.org/"
   },
   "keywords": [

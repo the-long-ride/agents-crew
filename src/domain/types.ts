@@ -12,7 +12,7 @@ export type TestStatus = 'passed' | 'failed' | 'skipped' | 'blocked';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export interface CanvasPosition { x: number; y: number }
-export interface TemplateMetadata { id: string; name: string; description: string; layout: Record<string, CanvasPosition> }
+export interface TemplateMetadata { id: string; name: string; description: string; group?: string; layout: Record<string, CanvasPosition> }
 export interface RunConfig {
   workspace_mode: WorkspaceMode;
   max_iterations: number;

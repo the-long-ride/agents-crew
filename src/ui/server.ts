@@ -4,7 +4,7 @@ import { createServer, type Server } from 'node:http';
 import { extname, normalize, resolve, sep } from 'node:path';
 import { spawn } from 'node:child_process';
 import { assetPath } from '../shared/assets.js';
-import { errorStatus, handleApiRequest, json } from './api.js';
+import { apiTokenMatches, errorStatus, handleApiRequest, json } from './api.js';
 
 const types: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',

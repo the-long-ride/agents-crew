@@ -98,8 +98,9 @@ function scan(node: ParentNode): void {
 
 function pruneDetached(): void {
   for (let i = handlers.length - 1; i >= 0; i--) {
-    if (!handlers[i].target.isConnected) {
-      const { target, enter, leave, blur } = handlers[i];
+    const h = handlers[i] as TooltipHandler;
+    if (!h.target.isConnected) {
+      const { target, enter, leave, blur } = h;
       target.removeEventListener('mouseenter', enter);
       target.removeEventListener('mouseleave', leave);
       target.removeEventListener('focusin', enter);

@@ -17,6 +17,7 @@ declare const process: {
   once(event: string, listener: (...args: any[]) => void): unknown;
   off(event: string, listener: (...args: any[]) => void): unknown;
   kill(pid: number, signal?: number | string): boolean;
+  exit(code?: number): never;
 };
 declare class Buffer {
   static from(value: string | Buffer): Buffer;
