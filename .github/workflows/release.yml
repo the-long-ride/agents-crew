@@ -27,7 +27,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
       - name: Install repository tooling
@@ -47,7 +47,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           package-manager-cache: false
       - name: Install repository tooling
         run: pnpm install --frozen-lockfile
@@ -60,7 +60,7 @@ jobs:
           mkdir -p artifacts
           npm pack --pack-destination artifacts
           (cd artifacts && sha256sum *.tgz > SHA256SUMS)
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: agents-crew-npm-package
           path: artifacts/*
@@ -79,7 +79,7 @@ jobs:
         id: version
         shell: bash
         run: echo "tag=${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: agents-crew-npm-package
           path: artifacts
@@ -100,12 +100,12 @@ jobs:
     steps:
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
       - name: Install trusted-publishing npm CLI
         run: npm install --global "npm@>=11.5.1 <12"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: agents-crew-npm-package
           path: artifacts

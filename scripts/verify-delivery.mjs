@@ -43,7 +43,7 @@ for (const [name, workflow] of [['ci', ci], ['release', release], ['manual-build
   assert.match(workflow, /pnpm\/action-setup@v6/u, `${name} must configure pnpm`);
   assert.doesNotMatch(workflow, /cargo|rustup|rust-toolchain/iu, `${name} must not use Rust`);
 }
-assert.match(release, /actions\/download-artifact@v4/u);
+assert.match(release, /actions\/download-artifact@v6/u);
 assert.match(release, /npm publish "\$PACKAGE" --access public --provenance/u);
 assert.match(release, /npm pack/u);
 assert.match(release, /id-token: write/u);
