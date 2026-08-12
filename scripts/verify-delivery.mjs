@@ -49,6 +49,6 @@ assert.match(release, /npm pack/u);
 assert.match(release, /id-token: write/u);
 assert.match(ci, /pnpm install --frozen-lockfile/u);
 assert.match(ci, /pnpm run check/u);
-assert.match(read('README.md'), /pnpm run build\s*\n(?:```[\s\S]*?)?npm link/u);
-assert.match(read('README.md'), /npm install --global @agents-crew\/cli/u);
+assert.match(read('GUIDELINE.md'), /pnpm run build\s*\n(?:```[\s\S]*?)?npm link/u);
+assert.match(read('GUIDELINE.md'), /npm install --global @agents-crew\/cli/u);
 console.log('TypeScript/pnpm development and npm delivery contract verified.');

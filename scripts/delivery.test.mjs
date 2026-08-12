@@ -79,12 +79,12 @@ test('typecheck fails instead of silently succeeding when no checker is availabl
 test('repository uses pnpm for development while preserving npm installation', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   const ci = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
-  const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8');
+  const guideline = await readFile(new URL('../GUIDELINE.md', import.meta.url), 'utf8');
   assert.match(packageJson.packageManager, /^pnpm@(10|11)\./u);
   assert.match(ci, /pnpm install --frozen-lockfile/u);
   assert.match(ci, /pnpm run check/u);
-  assert.match(readme, /npm install --global @agents-crew\/cli/u);
-  assert.match(readme, /pnpm run build/u);
+  assert.match(guideline, /npm install --global @agents-crew\/cli/u);
+  assert.match(guideline, /pnpm run build/u);
 });
 
 test('release publishes the exact verified npm artifact', async () => {

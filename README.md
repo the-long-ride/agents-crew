@@ -2,62 +2,13 @@
 
 Agents Crew is a dependency-free TypeScript CLI for running a durable manager-and-workers AI agent loop across Codex, Claude Code, OpenCode, and Antigravity.
 
-![Agents Crew Web UI Builder](https://github.com/user-attachments/assets/uploaded_media_1786450708950.png)
+![Agents Crew Web UI Builder](https://raw.githubusercontent.com/the-long-ride/agents-crew/master/media/demo/Builder-Tab.png)
 
 Only the manager host needs the plugin files. Workers can be native host agents, installed CLI tools, or read-only API models. The runtime owns task state, capability checks, approvals, retries, Git worktrees, verification evidence, and completion decisions.
 
-## Requirements
+## Installation & Development Guide
 
-- Node.js 22.13 or newer
-- Git for repository discovery and isolated write worktrees
-- At least one configured manager/native/CLI/API worker
-
-No Rust toolchain, platform binary, package dependency, or post-install download is required.
-
-## Install
-
-From npm:
-
-```bash
-npm install --global @agents-crew/cli
-crew --version
-```
-
-From this repository:
-
-```bash
-corepack enable
-pnpm install --frozen-lockfile
-pnpm run build
-npm link
-crew --version
-```
-
-Both commands are installed:
-
-- `crew` — preferred short command
-- `agents-crew` — compatibility alias
-
-## First setup
-
-Inside a repository:
-
-```bash
-crew init --non-interactive
-crew plugin install claude-code
-crew doctor
-```
-
-Supported manager hosts:
-
-```text
-codex
-claude-code
-opencode
-antigravity
-```
-
-`plugin install` generates only that host’s commands, manager instructions, and role agents. Generated files are tracked by `.agents-crew/plugin-manifests/<host>.json`, so doctor and uninstall can detect user edits.
+For requirements, installation instructions, first setup, development guidelines, and release procedures, see [GUIDELINE.md](GUIDELINE.md).
 
 ## Core commands
 
@@ -240,37 +191,4 @@ Host/model fields use a searchable custom combobox with centered SVG controls. M
 
 The header provides explicit dark and light modes. Every section has contextual help, and all buttons and text fields use square corners. Template saves are scoped to global or workspace storage. Request bodies are capped at 1 MiB. The UI has no CDN, remote fonts, analytics, frontend framework, or external browser dependency.
 
-## Development
-
-The repository uses pnpm 10 for development, while `npm link`, global installation, packing, and publishing remain supported:
-
-```bash
-corepack enable
-pnpm install --frozen-lockfile
-pnpm run build
-npm link
-```
-
-Full verification:
-
-```bash
-pnpm run check
-```
-
-Useful scripts:
-
-```bash
-pnpm run typecheck
-pnpm run lint
-pnpm run test:unit
-pnpm run coverage
-pnpm run pack:check
-```
-
-The build uses Node’s built-in TypeScript transform. The project intentionally has no `dependencies` or `devDependencies`. Runtime source is grouped by responsibility under `src/cli`, `src/config`, `src/domain`, `src/orchestration`, `src/runtime`, `src/templates`, `src/plugins`, `src/shared`, and `src/ui`; browser modules live under `ui/src`. Coverage thresholds apply to the shipped Node.js runtime under `dist/`. Browser modules run in the same test suite through focused model, markup, API, theme, viewport, and server tests; they are excluded from Node’s line-coverage denominator because the project has no browser coverage dependency.
-
-## Release
-
-Tagging `vX.Y.Z` runs `.github/workflows/release.yml`, verifies the root package version, runs the complete checks, creates one npm tarball, verifies and uploads that artifact to the GitHub Release, and publishes that exact `.tgz` to npm with provenance.
-
-See [installation](docs/installation.md), [configuration](docs/configuration.md), [manager protocol](docs/manager-protocol.md), [security](docs/security.md), [local UI](docs/ui.md), [troubleshooting](docs/troubleshooting.md), and [releasing](docs/releasing.md).
+See [guidelines](GUIDELINE.md), [installation](docs/installation.md), [configuration](docs/configuration.md), [manager protocol](docs/manager-protocol.md), [security](docs/security.md), [local UI](docs/ui.md), [troubleshooting](docs/troubleshooting.md), and [releasing](docs/releasing.md).
