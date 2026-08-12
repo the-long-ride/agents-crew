@@ -92,7 +92,7 @@ test('release publishes the exact verified npm artifact', async () => {
   const publishJob = workflow.split(/^  npm-publish:/mu)[1] ?? '';
   assert.match(publishJob, /actions\/download-artifact@v6/u);
   assert.match(publishJob, /npm install --global [^\n]*npm@/u);
-  assert.match(publishJob, /npm publish "\$PACKAGE"/u);
+  assert.match(publishJob, /npm publish "\.\/\$PACKAGE"/u);
   assert.doesNotMatch(publishJob, /npm pkg set|npm publish --access public\s*$/mu);
 });
 

@@ -44,7 +44,7 @@ for (const [name, workflow] of [['ci', ci], ['release', release], ['manual-build
   assert.doesNotMatch(workflow, /cargo|rustup|rust-toolchain/iu, `${name} must not use Rust`);
 }
 assert.match(release, /actions\/download-artifact@v6/u);
-assert.match(release, /npm publish "\$PACKAGE" --access public --provenance/u);
+assert.ok(release.includes('npm publish "./$PACKAGE" --access public --provenance'), 'release must publish ./$PACKAGE with provenance');
 assert.match(release, /npm pack/u);
 assert.match(release, /id-token: write/u);
 assert.match(ci, /pnpm install --frozen-lockfile/u);
