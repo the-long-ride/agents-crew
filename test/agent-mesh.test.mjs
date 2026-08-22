@@ -28,6 +28,13 @@ function requireMesh() {
   return api.AgentMesh;
 }
 
+function message() {
+  return {
+    id: 'msg-1', run_id: 'run-1', from: 'a', to: 'b', kind: 'request', body: 'review task',
+    task_id: 'task-1', created_at: new Date().toISOString(), delivery: 'mailbox',
+  };
+}
+
 test('registers and lists peer agents durably', async () => {
   const AgentMesh = requireMesh();
   const root = await workspace();
@@ -101,4 +108,38 @@ test('A2A peers receive direct message/send while the message remains durable', 
   } finally {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
+});
+
+test('A2A transport failure falls back to the durable mailbox', async () => {
+  const AgentMesh = requireMesh();
+  const server = createServer((_request, response) => {
+    response.writeHead(503, { 'content-type': 'application/json' });
+    response.end('{}');
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === 'object');
+    const root = await workspace();
+    const mesh = new AgentMesh(root);
+    await mesh.register({ id: 'a', roles: ['implementer'], capabilities: ['read'], interfaces: [] });
+    await mesh.register({ id: 'b', roles: ['reviewer'], capabilities: ['read'], interfaces: [{ kind: 'a2a', url: `http://127.0.0.1:${address.port}` }] });
+    const sent = await mesh.sendMessage('run-1', { from: 'a', to: 'b', kind: 'request', body: 'fallback' });
+    assert.equal(sent.delivery, 'mailbox');
+    assert.match(sent.direct_error, /HTTP 503/u);
+    assert.equal((await mesh.inbox('run-1', 'b'))[0].body, 'fallback');
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test('A2A transport rejects unsupported bindings and unresolved header secrets', async () => {
+  await assert.rejects(
+    api.sendA2AMessage({ kind: 'a2a', url: 'https://example.invalid', protocol_binding: 'HTTP+JSON' }, message()),
+    /unsupported A2A binding/u,
+  );
+  await assert.rejects(
+    api.sendA2AMessage({ kind: 'a2a', url: 'https://example.invalid', headers_env: { authorization: 'AGENTS_CREW_TEST_MISSING' } }, message()),
+    /missing A2A header environment variable/u,
+  );
 });
