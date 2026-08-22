@@ -13,6 +13,7 @@ export * from './cli/commands.js';
 export * from './orchestration/engine.js';
 export * from './orchestration/manager.js';
 export * from './orchestration/agent-mesh.js';
+export * from './orchestration/a2a.js';
 export * from './templates/registry.js';
 export * from './ui/server.js';
 export * from './ui/api.js';

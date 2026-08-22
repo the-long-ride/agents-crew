@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { validateTaskId } from '../domain/core.js';
 import type { AgentMessage, AgentMessageDraft, AgentRegistration, AgentRegistrationInput, Capability, Role, TaskLease } from '../domain/types.js';
 import { RunStore } from '../runtime/state.js';
+import { sendA2AMessage } from './a2a.js';
 import { RunProtocol } from './protocol.js';
 
 const roles = new Set<Role>(['manager', 'planner', 'researcher', 'implementer', 'tester', 'reviewer', 'integrator']);
@@ -195,13 +196,22 @@ export class AgentMesh {
   }
 
   async sendMessage(runId: string, draft: AgentMessageDraft): Promise<AgentMessage> {
-    await Promise.all([this.loadAgent(draft.from), this.loadAgent(draft.to)]);
+    const [, recipient] = await Promise.all([this.loadAgent(draft.from), this.loadAgent(draft.to)]);
     if (!draft.body.trim()) throw new Error('message body is required');
     if (draft.task_id) validateTaskId(draft.task_id);
     await this.store.load(runId);
     const message: AgentMessage = {
       ...structuredClone(draft), id: randomUUID(), run_id: runId, created_at: new Date().toISOString(), delivery: 'mailbox',
     };
+    const direct = recipient.interfaces.find((endpoint) => endpoint.kind === 'a2a' && (endpoint.protocol_binding ?? 'JSONRPC') === 'JSONRPC');
+    if (direct) {
+      try {
+        await sendA2AMessage(direct, message);
+        message.delivery = 'a2a';
+      } catch (error) {
+        message.direct_error = error instanceof Error ? error.message : String(error);
+      }
+    }
     const path = join(this.store.runDir(runId), 'communication', `${draft.to}.jsonl`);
     await withLock(`${path}.lock`, async () => {
       await mkdir(dirname(path), { recursive: true });
@@ -209,7 +219,7 @@ export class AgentMesh {
       try { await file.write(`${JSON.stringify(message)}\n`); }
       finally { await file.close(); }
     });
-    await this.store.appendEvent(runId, 'agent_message_sent', { message_id: message.id, from: message.from, to: message.to, task_id: message.task_id, delivery: message.delivery });
+    await this.store.appendEvent(runId, 'agent_message_sent', { message_id: message.id, from: message.from, to: message.to, task_id: message.task_id, delivery: message.delivery, direct_error: message.direct_error });
     return message;
   }
 
