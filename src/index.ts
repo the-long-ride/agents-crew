@@ -1,4 +1,5 @@
 export * from './cli/args.js';
+export * from './cli/agent-command.js';
 export * from './config/config.js';
 export * from './domain/core.js';
 export * from './runtime/git.js';
