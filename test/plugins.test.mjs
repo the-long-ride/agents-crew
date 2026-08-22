@@ -6,12 +6,15 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { HostPlugin, hosts } from '../dist/plugins/registry.js';
 
-test('all hosts generate unified commands and role agents', () => {
+test('all hosts generate unified commands and peer-agent instructions', () => {
   for (const host of hosts) {
     const files = new HostPlugin(host).planFiles('/repo');
+    const generated = files.map(([, content]) => content).join('\n');
     assert.ok(files.some(([path]) => path.includes('agents-crew')));
     assert.ok(files.some(([path, content]) => path.includes('reviewer') && content.includes('#')));
-    assert.ok(files.some(([, content]) => content.includes('manager submit')));
+    assert.match(generated, /manager submit/u);
+    assert.match(generated, /crew agent/u);
+    assert.doesNotMatch(generated, /You are the only installed manager/u);
   }
 });
 
