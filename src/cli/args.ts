@@ -42,7 +42,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   else if (['status', 'resume', 'pause', 'cancel'].includes(command)) args.run_id = args.run ?? positional[0];
   else if (['approve', 'reject'].includes(command)) { args.approval_id = positional[0]; args.run_id = args.run; }
   else if (command === 'ui') args.port = Number(args.port ?? 0);
-  else if (['template', 'config', 'plugin', 'worker', 'manager'].includes(command)) {
+  else if (['template', 'config', 'plugin', 'worker', 'manager', 'agent'].includes(command)) {
     args.subcommand = positional[0];
     args.positional = positional.slice(1);
   } else args.positional = positional;

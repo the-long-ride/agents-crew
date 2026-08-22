@@ -68,7 +68,12 @@ async function withFileLock<T>(path: string, operation: () => Promise<T>): Promi
         await rm(path, { recursive: true, force: true });
       }
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        await delay(10);
+        continue;
+      }
+      if (code !== 'EEXIST') throw error;
       try {
         const owner = JSON.parse(await readFile(join(path, 'owner.json'), 'utf8')) as { pid?: number };
         if (!processAlive(Number(owner.pid))) {
