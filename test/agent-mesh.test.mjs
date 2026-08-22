@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
 import { mkdtemp, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -67,4 +68,37 @@ test('messages are durable and readable from recipient inbox', async () => {
   assert.equal(inbox.length, 1);
   assert.equal(inbox[0].body, 'review task');
   assert.equal(inbox[0].from, 'a');
+});
+
+test('A2A peers receive direct message/send while the message remains durable', async () => {
+  const AgentMesh = requireMesh();
+  let observed;
+  const server = createServer(async (request, response) => {
+    let body = '';
+    for await (const chunk of request) body += chunk;
+    observed = { headers: request.headers, body: JSON.parse(body) };
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ jsonrpc: '2.0', id: observed.body.id, result: { message: { role: 'ROLE_AGENT', parts: [{ text: 'ok' }], messageId: 'reply-1' } } }));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === 'object');
+    const root = await workspace();
+    const mesh = new AgentMesh(root);
+    await mesh.register({ id: 'a', roles: ['implementer'], capabilities: ['read'], interfaces: [] });
+    await mesh.register({ id: 'b', roles: ['reviewer'], capabilities: ['read'], interfaces: [{ kind: 'a2a', url: `http://127.0.0.1:${address.port}` }] });
+    const sent = await mesh.sendMessage('run-1', { from: 'a', to: 'b', kind: 'review', body: 'review task', task_id: 'task-1' });
+    assert.equal(sent.delivery, 'a2a');
+    assert.equal(observed.headers['a2a-version'], '1.0');
+    assert.equal(observed.body.jsonrpc, '2.0');
+    assert.equal(observed.body.method, 'message/send');
+    assert.equal(observed.body.params.message.messageId, sent.id);
+    assert.equal(observed.body.params.message.parts[0].text, 'review task');
+    const inbox = await mesh.inbox('run-1', 'b');
+    assert.equal(inbox.length, 1);
+    assert.equal(inbox[0].delivery, 'a2a');
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
 });
