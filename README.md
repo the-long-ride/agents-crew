@@ -1,10 +1,10 @@
 # Agents Crew
 
-Agents Crew is a dependency-free TypeScript CLI for running a durable manager-and-workers AI agent loop across Codex, Claude Code, OpenCode, and Antigravity.
+Agents Crew is a dependency-free TypeScript control plane for durable multi-agent work across Codex, Claude Code, OpenCode, and Antigravity. The core owns run state, policy, approvals, recovery, verification, and optional scheduling; registered AI agents can also coordinate directly through task leases, durable mailboxes, and optional A2A delivery without routing every interaction through the engine.
 
 ![Agents Crew Web UI Builder](https://raw.githubusercontent.com/the-long-ride/agents-crew/master/media/demo/Builder-Tab.png)
 
-Only the manager host needs the plugin files. Workers can be native host agents, installed CLI tools, or read-only API models. The runtime owns task state, capability checks, approvals, retries, Git worktrees, verification evidence, and completion decisions.
+Only the manager host needs the plugin files. Workers can be native host agents, installed CLI tools, read-only API models, or peer agents participating through the agent mesh.
 
 ## Installation & Development Guide
 
@@ -33,9 +33,31 @@ crew worker run <worker-id> <task.json>
 crew manager start --goal "..." --host <host>
 crew manager step --run <run-id>
 crew manager submit --run <run-id> --action <action-id> --result <result.json>
+crew agent capabilities
+crew agent register <agent-id> --provider <provider> --roles <csv> --capabilities <csv> [--a2a-url <url>]
+crew agent list
+crew agent heartbeat <agent-id>
+crew agent claim <run-id> <task-id> <agent-id> [--lease-seconds 300]
+crew agent release <run-id> <task-id> <agent-id> [--force]
+crew agent send <run-id> <from-agent> <to-agent> --body "..." [--kind message|request|response|review|blocker] [--task <task-id>]
+crew agent inbox <run-id> <agent-id>
 ```
 
 Add `--json` anywhere for machine-readable output. JSON output never contains ANSI styling. Human output uses structured headings, indentation, status symbols, and ANSI color only when stdout/stderr is an interactive TTY; `NO_COLOR` disables color. Add `--workspace <path>` anywhere to target another repository.
+
+## Agent mesh
+
+An AI agent can discover the coordination protocol without starting or initializing the engine:
+
+```bash
+crew agent capabilities --json
+```
+
+Agents register a stable identity and capabilities, then can discover peers, claim/release tasks using leases, exchange messages, and inspect their inbox. These operations do not call the engine progression loop.
+
+When a recipient registers an A2A endpoint, Agents Crew attempts A2A 1.0 JSON-RPC `message/send` first. The same message is still journaled to the durable local mailbox for audit and recovery. If direct delivery is unavailable or fails, mailbox delivery remains functional. A2A authorization values can be supplied by the TypeScript API as environment-variable references; secret values are never stored in registration files.
+
+This makes the engine a coordination kernel rather than a mandatory communication relay. The existing manager protocol remains authoritative for planning, guarded execution, approvals, verification, retries, and completion.
 
 ## Manager loop
 
@@ -55,7 +77,7 @@ The manager must only execute actions returned by the runtime:
 - `request_approval` — wait for a user decision
 - `terminal` — display final state
 
-Action IDs are one-time, capability-bounded, and expire after 24 hours. The manager must not invent IDs or claim completion before the runtime returns `completed`.
+Action IDs are one-time, capability-bounded, and expire after 24 hours. Peer messages and task leases do not require a manager action, but they cannot bypass these lifecycle/policy decisions.
 
 ## Durable workspace
 
@@ -65,6 +87,7 @@ Action IDs are one-time, capability-bounded, and expire after 24 hours. The mana
 ├── roles/
 ├── templates/
 ├── plugin-manifests/
+├── agents/<agent-id>.json
 ├── active/<run-id>/
 │   ├── run.json
 │   ├── crew.snapshot.toml
@@ -74,6 +97,8 @@ Action IDs are one-time, capability-bounded, and expire after 24 hours. The mana
 │   ├── events.jsonl
 │   ├── intent.json
 │   ├── actions/
+│   ├── agents/claims/<task-id>.json
+│   ├── communication/<agent-id>.jsonl
 │   ├── artifacts/
 │   ├── context/
 │   └── tasks/
