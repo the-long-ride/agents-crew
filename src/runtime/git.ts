@@ -4,50 +4,10 @@ import { lstat, mkdir, readFile, readlink, rm, writeFile } from 'node:fs/promise
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { withDirectoryLock } from '../shared/durable-fs.js';
 const execFileAsync = promisify(execFile);
 
 export type ChangeSnapshot = Record<string, string>;
-
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-function processAlive(pid: number): boolean {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === 'EPERM';
-  }
-}
-
-async function withDirectoryLock<T>(path: string, operation: () => Promise<T>): Promise<T> {
-  await mkdir(dirname(path), { recursive: true });
-  for (let attempt = 0; attempt < 500; attempt += 1) {
-    try {
-      await mkdir(path);
-      await writeFile(join(path, 'owner.json'), `${JSON.stringify({ pid: process.pid, created_at: new Date().toISOString() })}
-`, 'utf8');
-      try { return await operation(); }
-      finally { await rm(path, { recursive: true, force: true }); }
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-      try {
-        const owner = JSON.parse(await readFile(join(path, 'owner.json'), 'utf8')) as { pid?: number };
-        if (!processAlive(Number(owner.pid))) {
-          await rm(path, { recursive: true, force: true });
-          continue;
-        }
-      } catch (ownerError) {
-        if ((ownerError as NodeJS.ErrnoException).code !== 'ENOENT') await rm(path, { recursive: true, force: true });
-      }
-      await delay(10);
-    }
-  }
-  throw new Error(`timed out acquiring Git integration lock: ${path}`);
-}
-
 
 export function canonicalScopedPath(root: string, scoped: string): string {
   if (isAbsolute(scoped)) throw new Error(`path escape is not allowed: ${scoped}`);

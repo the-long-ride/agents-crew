@@ -7,7 +7,7 @@ import type { Role } from '../domain/types.js';
 export const hosts = ['codex', 'claude-code', 'opencode', 'antigravity'] as const;
 export type Host = typeof hosts[number];
 export const commands = [
-  ['agents-crew', 'Start, resume, inspect, pause, or cancel a durable template run.'],
+  ['agents-crew', 'Start, resume, inspect, pause, cancel, or coordinate a durable Agents Crew run.'],
   ['crew-init', 'Create Agents Crew configuration and role files.'],
   ['crew-run', 'Run one goal through the complete managed crew loop.'],
   ['crew-plan', 'Create a bounded plan without implementation writes.'],
@@ -18,6 +18,7 @@ export const commands = [
   ['crew-reject', 'Reject one pending guarded action.'],
   ['crew-cancel', 'Cancel the selected run.'],
   ['crew-doctor', 'Probe config, workers, credentials, plugins, and Git.'],
+  ['crew-agent', 'Discover peers, claim tasks, and exchange durable peer messages.'],
   ['crew-config', 'Show and validate configuration.'],
 ] as const;
 export const generatedRoles: Role[] = ['planner', 'researcher', 'implementer', 'tester', 'reviewer', 'integrator'];
@@ -60,15 +61,16 @@ export async function roleContent(host: Host, role: Role): Promise<string> {
   if (host === 'claude-code') front = `---\nname: ${name}\ndescription: Agents Crew ${role} role\ntools: ${canWrite(role) ? 'Read, Write, Edit, Bash' : 'Read, Bash'}\n---\n\n`;
   if (host === 'opencode') front = `---\ndescription: Agents Crew ${role} role\nmode: subagent\npermission:\n  edit: ${canWrite(role) ? 'allow' : 'deny'}\n  bash: allow\n---\n\n`;
   if (host === 'antigravity') front = `---\nname: ${name}\ndescription: Agents Crew ${role} role\n---\n\n`;
-  return `${front}${await rolePrompt(role)}\n\nObey the capability envelope, workspace, context file, and output schema supplied by the TypeScript manager action. Return only the requested normalized result.`;
+  return `${front}${await rolePrompt(role)}\n\nObey the capability envelope, workspace, context file, and output schema supplied by the TypeScript manager action. When run and agent IDs are available, peer handoffs may use \`crew agent send\`, \`crew agent inbox\`, and task leases without relaying routine communication through the manager. Never bypass core policy or lease ownership. Return only the requested normalized result.`;
 }
 export function commandContent(host: Host, name: string, description: string): string {
   let front = '';
   if (host === 'opencode') front = `---\ndescription: ${description}\nagent: agents-crew-manager\n---\n\n`;
   if (host === 'claude-code') front = `---\ndescription: ${description}\n---\n\n`;
   if (host === 'antigravity') front = `---\nname: ${name}\ndescription: ${description}\n---\n\n`;
-  if (name === 'agents-crew') return `${front}Interpret \`$ARGUMENTS\` as an Agents Crew subcommand: start, resume, status, pause, or cancel. Use \`agents-crew ... --json\`. Continue only through actions returned by \`agents-crew manager step --run <run-id> --json\`, and submit results with \`agents-crew manager submit --run <run-id> --action <action-id> --result <file> --json\`. Read \`.agents-crew/active/<run-id>/goal-<run-id>.md\` and \`status.md\`. Never invent action IDs or claim completion before the core returns completed. Host: ${host}.\n`;
-  if (name === 'crew-run') return `${front}Start with \`crew manager start --goal "$ARGUMENTS" --host ${host} --json\`. Follow plan, review, dispatch_native, request_approval, and terminal actions. Use \`crew manager step\` and \`crew manager submit\`; never bypass policy.\n`;
+  if (name === 'agents-crew') return `${front}Interpret \`$ARGUMENTS\` as an Agents Crew lifecycle or peer-coordination request. Use \`agents-crew ... --json\` for lifecycle commands and \`crew agent ... --json\` for peer discovery, leases, and messages. Manager actions remain authoritative for planning, guarded execution, approvals, verification, and completion; routine peer communication does not need to pass through the manager. Read \`.agents-crew/active/<run-id>/goal-<run-id>.md\` and \`status.md\` when operating a run. Never invent action IDs or claim completion before the core returns completed. Host: ${host}.\n`;
+  if (name === 'crew-run') return `${front}Start with \`crew manager start --goal "$ARGUMENTS" --host ${host} --json\`. Follow plan, review, dispatch_native, request_approval, and terminal actions with \`crew manager step\` and \`crew manager submit\`. For peer handoffs, use the agent mesh rather than routing messages through manager actions. Never bypass policy.\n`;
+  if (name === 'crew-agent') return `${front}Inspect \`crew agent capabilities --json\` when discovering the protocol. Run \`crew agent $ARGUMENTS --json\` for register, list, heartbeat, claim, release, send, inbox, or capabilities. Direct A2A 1.0 JSON-RPC delivery is attempted when the recipient registered an A2A endpoint; the durable Agents Crew mailbox remains the fallback and audit trail.\n`;
   const invocations: Record<string, string> = {
     'crew-init': 'crew init --non-interactive --json', 'crew-plan': 'crew --json plan $ARGUMENTS',
     'crew-status': 'crew status $ARGUMENTS --json', 'crew-resume': 'crew resume $ARGUMENTS --json',
@@ -82,7 +84,7 @@ export function managerContent(host: Host): string {
   let front = '';
   if (host === 'opencode') front = '---\ndescription: Coordinates Agents Crew runs\nmode: primary\npermission:\n  edit: allow\n  bash: ask\n  task: allow\n---\n\n';
   if (host === 'claude-code') front = '---\nname: agents-crew-manager\ndescription: Coordinates Agents Crew runs\ntools: Read, Write, Edit, Bash, Task\n---\n\n';
-  return `${front}# Agents Crew Manager\n\nYou are the only installed manager. The TypeScript core is the authority for scheduling, policy, retries, workspaces, durable run files, action IDs, and completion. Before each cycle read the goal and status projections. Execute only actions returned by \`agents-crew manager step\`. Submit normalized results with \`manager submit\`. Do not claim completion until the core returns completed. Host: ${host}.\n`;
+  return `${front}# Agents Crew Manager\n\nYou are a host-level manager participating in the Agents Crew control plane. The TypeScript core is authoritative for run state, policy, retries, workspaces, durable action IDs, approvals, verification, and completion, but it is not a mandatory relay for peer communication. Inspect \`crew agent capabilities --json\`; when you have a stable identity, use \`crew agent register\`, \`list\`, \`claim\`, \`release\`, \`send\`, and \`inbox\` to coordinate peers. Registered A2A endpoints can receive direct messages, with the durable mailbox retained as fallback and audit. Use \`agents-crew manager step\` and \`manager submit\` for lifecycle actions that require core decisions. Do not claim completion until the core returns completed. Host: ${host}.\n`;
 }
 
 interface Manifest { version: number; host: Host; generated_by: string; files: { path: string; sha256: string }[] }
@@ -116,7 +118,7 @@ export class HostPlugin {
     const planned: [string, string][] = commands.map(([name, description]) => [commandPath(root, this.host, name), commandContent(this.host, name, description)]);
     planned.push([managerPath(root, this.host), managerContent(this.host)]);
     for (const role of generatedRoles) planned.push([rolePath(root, this.host, role), `# Agents Crew ${role}\n`]);
-    if (this.host === 'antigravity') planned.push([join(root, '.agents', 'plugins', 'agents-crew', 'plugin.json'), '{\n  "name": "agents-crew",\n  "version": 1,\n  "description": "TypeScript-enforced multi-agent loop manager"\n}\n']);
+    if (this.host === 'antigravity') planned.push([join(root, '.agents', 'plugins', 'agents-crew', 'plugin.json'), '{\n  "name": "agents-crew",\n  "version": 1,\n  "description": "Durable multi-agent control plane and peer coordination mesh"\n}\n']);
     return planned;
   }
 

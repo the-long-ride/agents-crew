@@ -39,7 +39,7 @@ export class RunProtocol {
     let directory = this.store.runDir(run.id);
     if (directory === this.store.activeRunDir(run.id)) directory = await this.store.archive(run.id);
     await writeFile(join(directory, 'summary.json'), `${JSON.stringify({ id: run.id, status: run.status, goal: run.original_goal, summary: run.terminal_summary, completed_at: new Date().toISOString() }, null, 2)}\n`, 'utf8');
-    for (const name of ['context', 'tasks', 'communication', 'actions', 'agents', 'blockers']) await rm(join(directory, name), { recursive: true, force: true });
+    for (const name of ['context', 'tasks', 'actions', 'agents', 'blockers']) await rm(join(directory, name), { recursive: true, force: true });
     await this.sync(run);
   }
 

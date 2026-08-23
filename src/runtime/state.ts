@@ -1,8 +1,8 @@
-import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, readdir, rename, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { Capability, OutstandingAction, Run, RunEvent } from '../domain/types.js';
+import { atomicJson, withDirectoryLock } from '../shared/durable-fs.js';
 
 const runStatuses = new Set(['planning', 'working', 'paused', 'awaiting_approval', 'manager_required', 'completed', 'blocked', 'failed', 'cancelled']);
 const capabilities = new Set(['read', 'write', 'shell', 'network', 'commit', 'push', 'deploy', 'destructive']);
@@ -33,60 +33,6 @@ function assertStorageId(value: string, label: string): void {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/u.test(value) || value === '.' || value === '..') {
     throw new Error(`invalid ${label} identifier: ${value}`);
   }
-}
-
-async function atomicJson(path: string, value: unknown): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  await rename(temporary, path);
-}
-
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-function processAlive(pid: number): boolean {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === 'EPERM';
-  }
-}
-
-async function withFileLock<T>(path: string, operation: () => Promise<T>): Promise<T> {
-  await mkdir(dirname(path), { recursive: true });
-  for (let attempt = 0; attempt < 500; attempt += 1) {
-    try {
-      await mkdir(path);
-      await writeFile(join(path, 'owner.json'), `${JSON.stringify({ pid: process.pid, created_at: new Date().toISOString() })}\n`, 'utf8');
-      try {
-        return await operation();
-      } finally {
-        await rm(path, { recursive: true, force: true });
-      }
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-      try {
-        const owner = JSON.parse(await readFile(join(path, 'owner.json'), 'utf8')) as { pid?: number };
-        if (!processAlive(Number(owner.pid))) {
-          await rm(path, { recursive: true, force: true });
-          continue;
-        }
-      } catch (ownerError) {
-        if ((ownerError as NodeJS.ErrnoException).code === 'ENOENT') {
-          await delay(10);
-          continue;
-        }
-        await rm(path, { recursive: true, force: true });
-        continue;
-      }
-      await delay(10);
-    }
-  }
-  throw new Error(`timed out acquiring state lock: ${path}`);
 }
 
 export class RunStore {
@@ -167,7 +113,7 @@ export class RunStore {
   }
 
   async appendEvent(runId: string, kind: string, data: unknown): Promise<RunEvent> {
-    return withFileLock(this.lockPath(runId, 'events'), async () => {
+    return withDirectoryLock(this.lockPath(runId, 'events'), async () => {
       const events = await this.readEvents(runId);
       const event: RunEvent = { sequence: (events.at(-1)?.sequence ?? 0) + 1, timestamp: new Date().toISOString(), kind, data };
       const path = join(this.runDir(runId), 'events.jsonl');
@@ -198,7 +144,7 @@ export class RunStore {
 
   async consumeAction(runId: string, id: string, claimed: Capability[]): Promise<OutstandingAction> {
     assertStorageId(id, 'action');
-    return withFileLock(this.lockPath(runId, `action-${id}`), async () => {
+    return withDirectoryLock(this.lockPath(runId, `action-${id}`), async () => {
       const action = await this.loadAction(runId, id);
       if (action.consumed) throw new Error(`action already consumed: ${id}`);
       if (action.expires_at && Date.parse(action.expires_at) <= Date.now()) throw new Error(`action expired: ${id}`);
