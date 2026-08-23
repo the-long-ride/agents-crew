@@ -167,3 +167,52 @@ export interface RunIntent {
   acceptance_criteria: string[];
   constraints: string[];
 }
+
+export type AgentProtocolBinding = 'JSONRPC' | 'HTTP+JSON';
+export interface AgentInterface {
+  kind: 'a2a' | 'mailbox';
+  url?: string;
+  protocol_binding?: AgentProtocolBinding;
+  protocol_version?: string;
+  tenant?: string;
+  headers_env?: Record<string, string>;
+}
+export interface AgentRegistrationInput {
+  id: string;
+  provider?: string;
+  roles: Role[];
+  capabilities: Capability[];
+  interfaces: AgentInterface[];
+  metadata?: Record<string, unknown>;
+}
+export interface AgentRegistration extends AgentRegistrationInput {
+  metadata: Record<string, unknown>;
+  registered_at: string;
+  heartbeat_at: string;
+}
+export interface TaskLease {
+  run_id: string;
+  task_id: string;
+  agent_id: string;
+  claimed_at: string;
+  expires_at: string;
+  revision: number;
+  workspace_binding?: string;
+  workspace_snapshot?: Record<string, string>;
+}
+export type AgentMessageKind = 'message' | 'request' | 'response' | 'review' | 'blocker';
+export interface AgentMessageDraft {
+  from: string;
+  to: string;
+  kind: AgentMessageKind;
+  body: string;
+  task_id?: string;
+  reply_to?: string;
+}
+export interface AgentMessage extends AgentMessageDraft {
+  id: string;
+  run_id: string;
+  created_at: string;
+  delivery: 'a2a' | 'mailbox';
+  direct_error?: string;
+}

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from './args.js';
+import { dispatchAgentCommand } from './agent-command.js';
 import { dispatchCommand } from './commands.js';
 import { presentError, presentHuman } from './presenter.js';
 
-const usage = `Agents Crew\n\nUsage: crew [--workspace <path>] [--json] <command>\n\nCommands: init, ui, start, run, plan, status, resume, pause, approve, reject, cancel, doctor, template, config, plugin, worker, manager`;
-
+const usage = `Agents Crew\n\nUsage: crew [--workspace <path>] [--json] <command>\n\nCommands: init, ui, start, run, plan, status, resume, pause, approve, reject, cancel, doctor, template, config, plugin, worker, manager, agent`;
 
 try {
   if (process.argv.includes('--help') || process.argv.includes('-h')) process.stdout.write(`${usage}\n`);
@@ -14,7 +14,7 @@ try {
     process.stdout.write(`${packageJson.version}\n`);
   } else {
     const parsed = parseArgs(process.argv.slice(2));
-    const result = await dispatchCommand(parsed);
+    const result = parsed.command === 'agent' ? await dispatchAgentCommand(parsed) : await dispatchCommand(parsed);
     if (parsed.command !== 'ui') {
       const color = Boolean((process.stdout as { isTTY?: boolean }).isTTY) && !('NO_COLOR' in process.env);
       process.stdout.write(`${parsed.json ? JSON.stringify(result) : presentHuman(result, { color })}\n`);
