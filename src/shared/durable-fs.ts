@@ -50,6 +50,10 @@ export async function atomicJson(path: string, value: unknown): Promise<void> {
   await rename(temporary, path);
 }
 
+function transientWindowsLockError(error: unknown): boolean {
+  return process.platform === 'win32' && (error as NodeJS.ErrnoException).code === 'EPERM';
+}
+
 export async function withDirectoryLock<T>(
   path: string,
   operation: () => Promise<T>,
@@ -63,9 +67,14 @@ export async function withDirectoryLock<T>(
     try {
       await mkdir(path);
     } catch (error) {
+      if (transientWindowsLockError(error)) {
+        await delay(wait);
+        continue;
+      }
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
       if (await staleLock(path, staleMilliseconds)) {
         await rm(path, { recursive: true, force: true });
+        await delay(wait);
         continue;
       }
       await delay(wait);
@@ -75,7 +84,7 @@ export async function withDirectoryLock<T>(
       try {
         await atomicJson(join(path, 'owner.json'), { pid: process.pid, created_at: new Date().toISOString() });
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT' || transientWindowsLockError(error)) {
           await delay(wait);
           continue;
         }

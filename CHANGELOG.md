@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Added `agents-crew orchestrate` as the high-level one-prompt entry point for Codex, Claude Code, OpenCode, and Antigravity hosts.
+- Added automatic starter configuration/bootstrap when `.agents-crew/config.toml` is missing, without overwriting existing workspace configuration.
+- Added stable normalized request hashes and durable `orchestration.json` metadata so equivalent active prompts resume instead of creating duplicate runs.
+- Added prompt-sized starter DAGs so small requests do not automatically pay for the full fixed research/implement/review pipeline; explicit independent-review configuration still overrides prompt size.
+- Updated generated `@agents-crew` host instructions to hide manager-loop ceremony from users while preserving low-level manager and AgentMesh commands for advanced/debug use.
+- Kept current-workspace execution as the default and preserved existing Engine policy, verification, recovery, and AgentMesh semantics.
+
 ## 0.0.2
 
 - Added double-click inline rename for crew and group items in the Crew library sidebar (Enter/blur to save, Escape to cancel).

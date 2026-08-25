@@ -1,10 +1,28 @@
 # Agents Crew
 
-Agents Crew is a dependency-free TypeScript control plane for durable multi-agent work across Codex, Claude Code, OpenCode, and Antigravity. The core owns run state, policy, approvals, recovery, verification, and optional scheduling; registered AI agents can also coordinate directly through task leases, durable mailboxes, and optional A2A delivery without routing every interaction through the engine.
+Agents Crew is a dependency-free TypeScript control plane for durable multi-agent work across Codex, Claude Code, OpenCode, and Antigravity. The normal interface is one prompt: Agents Crew bootstraps its runtime state, creates the smallest useful task graph, coordinates capable agents, enforces policy, recovers durable work, and verifies completion. Registered AI agents can also coordinate directly through task leases, durable mailboxes, and optional A2A delivery without routing every interaction through the engine.
 
 ![Agents Crew Web UI Builder](https://raw.githubusercontent.com/the-long-ride/agents-crew/master/media/demo/Builder-Tab.png)
 
 Only the manager host needs the plugin files. Workers can be native host agents, installed CLI tools, read-only API models, or peer agents participating through the agent mesh.
+
+## One-prompt orchestration
+
+From a connected Codex, Claude Code, OpenCode, or Antigravity host, the normal workflow is:
+
+```text
+@agents-crew fix OAuth reconnect and add tests
+```
+
+The equivalent CLI entry point is:
+
+```bash
+agents-crew orchestrate --host opencode --goal "fix OAuth reconnect and add tests"
+```
+
+No explicit `crew init`, crew name, or manual manager loop is required. If `.agents-crew/config.toml` is missing, orchestration creates the minimum starter configuration automatically and records durable run state under `.agents-crew/` inside the current repository. That directory is coordination state, not another copy of the source tree. Equivalent active requests resume by normalized request hash instead of creating duplicate runs.
+
+Low-level lifecycle, manager, and agent commands remain supported for integrations, debugging, and explicit manual control.
 
 ## Installation & Development Guide
 
@@ -13,6 +31,7 @@ For requirements, installation instructions, first setup, development guidelines
 ## Core commands
 
 ```bash
+agents-crew orchestrate --host <host> --goal "..." [--plan-only]
 crew init [--force] [--non-interactive]
 crew ui [--port 4815] [--no-open]
 crew start <template-id> --goal "..." [--expectation "..."] [--acceptance "..."] [--constraint "..."]
@@ -61,9 +80,9 @@ Force-releasing a lease is intentionally unavailable through the ordinary peer C
 
 This makes the engine a coordination kernel rather than a mandatory communication relay. The existing manager protocol remains authoritative for planning, guarded execution, approvals, verification, retries, and completion.
 
-## Manager loop
+## Advanced: manager loop
 
-A host integration normally uses the explicit durable protocol:
+Integrations and debugging tools can use the explicit durable protocol directly:
 
 ```bash
 crew manager start --goal "Implement the requested change" --host claude-code --json
@@ -79,7 +98,7 @@ The manager must only execute actions returned by the runtime:
 - `request_approval` — wait for a user decision
 - `terminal` — display final state
 
-Action IDs are one-time, capability-bounded, and expire after 24 hours. Peer messages and task leases do not require a manager action, but they cannot bypass these lifecycle/policy decisions.
+Action IDs are one-time, capability-bounded, and expire after 24 hours. Peer messages and task leases do not require a manager action, but they cannot bypass these lifecycle/policy decisions. The generated `@agents-crew` host command hides this protocol during normal one-prompt use.
 
 ## Durable workspace
 
@@ -92,6 +111,7 @@ Action IDs are one-time, capability-bounded, and expire after 24 hours. Peer mes
 ├── agents/<agent-id>.json
 ├── active/<run-id>/
 │   ├── run.json
+│   ├── orchestration.json
 │   ├── crew.snapshot.toml
 │   ├── goal-<run-id>.md
 │   ├── status.md
@@ -109,11 +129,13 @@ Action IDs are one-time, capability-bounded, and expire after 24 hours. Peer mes
 └── worktrees/<run-id>/<task-id>/
 ```
 
-Each run snapshots its resolved configuration. Resuming a run does not silently adopt later workspace or template edits.
+Each run snapshots its resolved configuration. Resuming a run does not silently adopt later workspace or template edits. `orchestration.json` contains only high-level request/recovery metadata; it does not store model chain-of-thought.
 
 ## Configuration
 
-`crew init` writes `.agents-crew/config.toml` with a manager-native starter worker. Example CLI workers:
+One-prompt orchestration automatically writes a starter `.agents-crew/config.toml` only when no configuration exists. Use `crew init` explicitly when you want the complete role files and setup workflow. Existing configuration is never overwritten by automatic bootstrap.
+
+Example CLI workers:
 
 ```toml
 [[workers]]

@@ -5,7 +5,7 @@ import { dispatchAgentCommand } from './agent-command.js';
 import { dispatchCommand } from './commands.js';
 import { presentError, presentHuman } from './presenter.js';
 
-const usage = `Agents Crew\n\nUsage: crew [--workspace <path>] [--json] <command>\n\nCommands: init, ui, start, run, plan, status, resume, pause, approve, reject, cancel, doctor, template, config, plugin, worker, manager, agent`;
+const usage = `Agents Crew\n\nUsage: crew [--workspace <path>] [--json] <command>\n\nCommands: orchestrate, init, ui, start, run, plan, status, resume, pause, approve, reject, cancel, doctor, template, config, plugin, worker, manager, agent`;
 
 try {
   if (process.argv.includes('--help') || process.argv.includes('-h')) process.stdout.write(`${usage}\n`);

@@ -11,6 +11,17 @@ function command(workspace, name, args = {}) {
   return dispatchCommand({ workspace, json: true, command: name, args });
 }
 
+test('orchestrate auto-bootstraps and routes one prompt through the high-level API', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'agents-crew-orchestrate-command-'));
+  const first = await command(root, 'orchestrate', { goal: 'fix typo', host: 'opencode', plan_only: true });
+  assert.equal(first.status, 'working');
+  assert.equal(first.resumed, false);
+  const second = await command(root, 'orchestrate', { goal: '  fix   typo ', host: 'opencode', plan_only: true });
+  assert.equal(second.run_id, first.run_id);
+  assert.equal(second.resumed, true);
+  assert.equal((await command(root, 'config', { subcommand: 'show', positional: [] })).manager.host, 'opencode');
+});
+
 test('command router covers setup, templates, plugins, planning, and durable controls', async () => {
   const root = await mkdtemp(join(tmpdir(), 'agents-crew-commands-'));
   assert.equal((await command(root, 'init', { non_interactive: true })).initialized, true);
