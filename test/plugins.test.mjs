@@ -6,13 +6,23 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { HostPlugin, hosts } from '../dist/plugins/registry.js';
 
-test('all hosts generate unified commands and peer-agent instructions', () => {
+test('all hosts generate one-prompt orchestration plus explicit advanced action protocol', () => {
   for (const host of hosts) {
     const files = new HostPlugin(host).planFiles('/repo');
     const generated = files.map(([, content]) => content).join('\n');
+    const primary = files.find(([path]) => path.includes('agents-crew') && !path.includes('agents-crew-manager'))?.[1] ?? '';
     assert.ok(files.some(([path]) => path.includes('agents-crew')));
     assert.ok(files.some(([path, content]) => path.includes('reviewer') && content.includes('#')));
-    assert.match(generated, /manager submit/u);
+    assert.match(primary, /agents-crew orchestrate/u);
+    assert.match(primary, /Do not ask the user to initialize Agents Crew/u);
+    assert.match(primary, /dispatch_native/u);
+    assert.match(primary, /crew manager submit --run <run_id> --action <action_id> --result <result-file>/u);
+    assert.match(primary, /pending_approvals/u);
+    assert.match(primary, /crew approve <approval_id> --run <run_id>/u);
+    assert.match(primary, /If rejected.*report the blocked result, and stop/u);
+    assert.match(primary, /do not automatically start or resume another run/u);
+    assert.match(primary, /summarize returned `evidence` and `verification`/u);
+    assert.match(primary, /invoke the original `agents-crew orchestrate/u);
     assert.match(generated, /crew agent/u);
     assert.doesNotMatch(generated, /You are the only installed manager/u);
   }
@@ -31,7 +41,6 @@ test('plugin doctor detects modifications and uninstall preserves them', async (
   assert.match(await readFile(first, 'utf8'), /user edit/);
 });
 
-
 test('plugin manifest cannot escape the workspace during uninstall', async () => {
   const sandbox = await mkdtemp(join(tmpdir(), 'agents-crew-plugin-manifest-'));
   const root = join(sandbox, 'repo');
@@ -49,7 +58,6 @@ test('plugin manifest cannot escape the workspace during uninstall', async () =>
   await assert.rejects(new HostPlugin('claude-code').uninstall(root), /invalid plugin manifest/i);
   assert.equal(await readFile(victim, 'utf8'), content);
 });
-
 
 test('plugin manifests reject wrong ownership, malformed hashes, and duplicate paths', async () => {
   const root = await mkdtemp(join(tmpdir(), 'agents-crew-plugin-invalid-manifest-'));

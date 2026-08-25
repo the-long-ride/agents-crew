@@ -26,7 +26,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     const value = commandTokens[index] as string;
     if (!value.startsWith('--')) { positional.push(value); continue; }
     const key = value.slice(2).replaceAll('-', '_');
-    if (['non_interactive', 'force', 'no_open', 'yes', 'binary_only'].includes(key)) { args[key] = true; continue; }
+    if (['non_interactive', 'force', 'no_open', 'yes', 'binary_only', 'plan_only'].includes(key)) { args[key] = true; continue; }
     const [next, consumed] = takeValue(commandTokens, index, value);
     index = consumed;
     if (key === 'expectation' || key === 'acceptance' || key === 'constraint') repeated[key]?.push(next);
@@ -38,7 +38,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     args.expectations = repeated.expectation;
     args.acceptance_criteria = repeated.acceptance;
     args.constraints = repeated.constraint;
-  } else if (['run', 'plan'].includes(command)) args.goal = positional.join(' ');
+  } else if (['run', 'plan', 'orchestrate'].includes(command)) args.goal = args.goal ?? positional.join(' ');
   else if (['status', 'resume', 'pause', 'cancel'].includes(command)) args.run_id = args.run ?? positional[0];
   else if (['approve', 'reject'].includes(command)) { args.approval_id = positional[0]; args.run_id = args.run; }
   else if (command === 'ui') args.port = Number(args.port ?? 0);

@@ -8,6 +8,7 @@ import { createRun, createTask } from '../domain/core.js';
 import { advanceRun, buildDefaultRun, configPath, persistRun, runResponse, store } from '../orchestration/engine.js';
 import { GitRepository } from '../runtime/git.js';
 import { managerStart, managerStep, submitManagerResult } from '../orchestration/manager.js';
+import { PromptOrchestrator } from '../orchestration/prompt-orchestrator.js';
 import { HostPlugin, hosts } from '../plugins/registry.js';
 import { RunProtocol } from '../orchestration/protocol.js';
 import { changeRunStatus, decideRunApproval, loadSelectedRun, resumeRun } from '../orchestration/run-control.js';
@@ -193,6 +194,14 @@ async function managerCommand(workspace: string, args: Record<string, unknown>):
 export async function dispatchCommand(parsed: ParsedArgs): Promise<unknown> {
   const workspace = resolve(parsed.workspace);
   const { command, args } = parsed;
+  if (command === 'orchestrate') {
+    return new PromptOrchestrator().execute({
+      workspace,
+      host: optionalText(args.host) ?? 'claude-code',
+      prompt: text(args.goal, 'goal'),
+      mode: bool(args.plan_only) ? 'plan-only' : 'auto',
+    });
+  }
   if (command === 'init') return init(workspace, args);
   if (command === 'ui') return serveUi(workspace, Number(args.port ?? 0), bool(args.no_open));
   if (command === 'start') return startTemplate(workspace, args);

@@ -10,6 +10,16 @@ test('parses global flags and durable template fields', () => {
   assert.deepEqual(parsed.args.expectations, ['compatible']);
 });
 
+test('orchestrate accepts positional goals and explicit goal flags', () => {
+  const positional = parseArgs(['orchestrate', '--host', 'opencode', 'fix', 'auth', 'reconnect']);
+  assert.equal(positional.command, 'orchestrate');
+  assert.equal(positional.args.goal, 'fix auth reconnect');
+  assert.equal(positional.args.host, 'opencode');
+  const explicit = parseArgs(['orchestrate', '--goal', 'ship it', 'ignored', '--plan-only']);
+  assert.equal(explicit.args.goal, 'ship it');
+  assert.equal(explicit.args.plan_only, true);
+});
+
 test('run selectors accept positional and --run forms', () => {
   assert.equal(parseArgs(['resume', 'run-1']).args.run_id, 'run-1');
   assert.equal(parseArgs(['status', '--run', 'run-2']).args.run_id, 'run-2');
