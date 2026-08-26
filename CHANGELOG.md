@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.0.3
 
 - Added `agents-crew orchestrate` as the high-level one-prompt entry point for Codex, Claude Code, OpenCode, and Antigravity hosts.
 - Added automatic starter configuration/bootstrap when `.agents-crew/config.toml` is missing, without overwriting existing workspace configuration.
@@ -8,6 +8,15 @@
 - Added prompt-sized starter DAGs so small requests do not automatically pay for the full fixed research/implement/review pipeline; explicit independent-review configuration still overrides prompt size.
 - Updated generated `@agents-crew` host instructions to hide manager-loop ceremony from users while preserving low-level manager and AgentMesh commands for advanced/debug use.
 - Kept current-workspace execution as the default and preserved existing Engine policy, verification, recovery, and AgentMesh semantics.
+- Added decentralized peer-to-peer Agent Mesh orchestration layer (`AgentMesh`, `AgentMailbox`, `AgentRegistry`).
+- Added durable agent registration, discovery, heartbeats, and status tracking.
+- Added exclusive task leasing with TTL auto-recovery and Git delta validation on task completion.
+- Added inter-agent durable messaging with JSON-RPC 2.0 A2A direct transport and transparent mailbox fallback.
+- Added permission policy enforcement for network transport and credentialed actions on direct agent communication.
+- Added CLI commands for peer agents: register, list, heartbeat, lease claim/release/complete, send/inbox messages.
+- Fixed npm publishing workflow by prefixing package path with `./`.
+- Migrated GitHub Actions CI/CD workflows to Node.js 24 and actions@v6.
+- Reorganized installation and dev guide into GUIDELINE.md.
 
 ## 0.0.2
 
