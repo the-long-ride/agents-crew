@@ -16,7 +16,7 @@ function run(root, args) {
 test('compiled CLI reads the root package version after source relocation', () => {
   const result = spawnSync(process.execPath, [cli, '--version'], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), '0.0.2');
+  assert.equal(result.stdout.trim(), '0.0.3');
 });
 
 test('CLI initializes, validates config, and exposes both aliases through package metadata', async () => {

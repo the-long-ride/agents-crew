@@ -13,7 +13,7 @@ test('human presenter colors semantic status only when requested', () => {
 
 test('human presenter formats doctor results as indented operator sections', () => {
   const output = presentHuman({
-    binary_version: '0.0.2', runtime: 'v22.16.0', config_valid: true,
+    binary_version: '0.0.3', runtime: 'v22.16.0', config_valid: true,
     git: { root: '/repo' },
     workers: [
       { id: 'codex-main', kind: 'cli', available: true, model: 'gpt-5.6' },

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.0.3
+
+- Added decentralized peer-to-peer Agent Mesh orchestration layer (`AgentMesh`, `AgentMailbox`, `AgentRegistry`).
+- Added durable agent registration, discovery, heartbeats, and status tracking.
+- Added exclusive task leasing with TTL auto-recovery and Git delta validation on task completion.
+- Added inter-agent durable messaging with JSON-RPC 2.0 A2A direct transport and transparent mailbox fallback.
+- Added permission policy enforcement for network transport and credentialed actions on direct agent communication.
+- Added CLI commands for peer agents: register, list, heartbeat, lease claim/release/complete, send/inbox messages.
+- Fixed npm publishing workflow by prefixing package path with `./`.
+- Migrated GitHub Actions CI/CD workflows to Node.js 24 and actions@v6.
+- Reorganized installation and dev guide into GUIDELINE.md.
+
 ## 0.0.2
 
 - Added double-click inline rename for crew and group items in the Crew library sidebar (Enter/blur to save, Escape to cancel).
